@@ -58,23 +58,39 @@ let unsubscribes = [];
 let logs=[], routines=[], events=[], videos=[], memos=[], equipments=[], goals=[];
 
 // ── Auth ───────────────────────────────────────────────────
-getRedirectResult(auth).catch(e => console.log(e));
+function showApp(user) {
+  currentUser = user;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display  = 'flex';
+  document.getElementById('user-name').textContent = user.displayName?.split(' ')[0] || '사용자';
+  document.getElementById('user-avatar').src = user.photoURL || '';
+  subscribeAll();
+  initCalendar();
+  setTodayInputs();
+  renderAppTitle();
+}
+
+function showLogin() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display  = 'none';
+  unsubscribes.forEach(u => u());
+  unsubscribes = [];
+}
+
+// 리다이렉트 로그인 결과 먼저 확인
+getRedirectResult(auth).then(result => {
+  if (result && result.user) {
+    showApp(result.user);
+  }
+}).catch(e => console.log('redirect error:', e));
+
+// 일반 상태 변화 감지
 onAuthStateChanged(auth, user => {
   currentUser = user;
   if (user) {
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app-screen').style.display  = 'flex';
-    document.getElementById('user-name').textContent = user.displayName?.split(' ')[0] || '사용자';
-    document.getElementById('user-avatar').src = user.photoURL || '';
-    subscribeAll();
-    initCalendar();
-    setTodayInputs();
-    renderAppTitle();
+    showApp(user);
   } else {
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('app-screen').style.display  = 'none';
-    unsubscribes.forEach(u => u());
-    unsubscribes = [];
+    showLogin();
   }
 });
 
