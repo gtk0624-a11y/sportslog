@@ -10,7 +10,7 @@
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc,
   query, where, orderBy, onSnapshot, serverTimestamp }
@@ -58,6 +58,7 @@ let unsubscribes = [];
 let logs=[], routines=[], events=[], videos=[], memos=[], equipments=[], goals=[];
 
 // ── Auth ───────────────────────────────────────────────────
+getRedirectResult(auth).catch(e => console.log(e));
 onAuthStateChanged(auth, user => {
   currentUser = user;
   if (user) {
@@ -79,7 +80,7 @@ onAuthStateChanged(auth, user => {
 
 window.loginGoogle = async () => {
   try {
-    await signInWithPopup(auth, new GoogleAuthProvider());
+    await signInWithRedirect(auth, new GoogleAuthProvider());
   } catch(e) { showToast('로그인 실패: ' + e.message); }
 };
 
