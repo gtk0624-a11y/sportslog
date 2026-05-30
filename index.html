@@ -217,6 +217,156 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <div class="login-copy">© 김정환</div>
 </div>
 
+
+<!-- 역할 선택 화면 -->
+<div id="role-screen" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px 24px;background:linear-gradient(135deg,#0F6E56,#1D9E75)">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:.12em;color:#fff;margin-bottom:8px">SPORT <span style="color:#a7f3d0">LOG</span></div>
+  <div style="font-size:14px;color:rgba(255,255,255,.7);margin-bottom:40px">어떤 역할로 사용하시겠습니까?</div>
+  <div style="display:flex;flex-direction:column;gap:14px;width:100%;max-width:320px">
+    <button onclick="selectRole('teacher')" style="background:#fff;border:none;border-radius:14px;padding:20px;font-size:16px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;color:#0F6E56;display:flex;align-items:center;gap:12px;transition:transform .15s">
+      <span style="font-size:28px">👨‍🏫</span>
+      <div style="text-align:left"><div style="font-size:16px;font-weight:700">교사</div><div style="font-size:12px;color:#666;font-weight:400">반 전체 관리 및 기록 열람</div></div>
+    </button>
+    <button onclick="selectRole('student')" style="background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.4);border-radius:14px;padding:20px;font-size:16px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;color:#fff;display:flex;align-items:center;gap:12px">
+      <span style="font-size:28px">🧑‍🎓</span>
+      <div style="text-align:left"><div style="font-size:16px;font-weight:700">학생</div><div style="font-size:12px;color:rgba(255,255,255,.7);font-weight:400">개인 훈련 기록 및 목표 관리</div></div>
+    </button>
+  </div>
+  <button onclick="signOut()" style="margin-top:32px;background:none;border:none;color:rgba(255,255,255,.5);font-size:13px;cursor:pointer;font-family:'Noto Sans KR',sans-serif">로그아웃</button>
+</div>
+
+<!-- 반 코드 입력 화면 (학생용) -->
+<div id="class-screen" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px 24px;background:linear-gradient(135deg,#0F6E56,#1D9E75)">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:.12em;color:#fff;margin-bottom:8px">SPORT <span style="color:#a7f3d0">LOG</span></div>
+  <div style="font-size:14px;color:rgba(255,255,255,.7);margin-bottom:32px">선생님께 받은 반 코드를 입력하세요</div>
+  <div style="width:100%;max-width:320px">
+    <input type="text" id="class-code-input" placeholder="예: ABC123" maxlength="8"
+      style="width:100%;background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.4);border-radius:14px;padding:16px 20px;font-size:22px;font-weight:700;color:#fff;outline:none;text-align:center;letter-spacing:.2em;font-family:'Bebas Neue',sans-serif;margin-bottom:14px;text-transform:uppercase">
+    <div id="class-code-error" style="color:#fca5a5;font-size:13px;text-align:center;margin-bottom:12px;display:none">반 코드를 찾을 수 없습니다. 다시 확인해주세요.</div>
+    <button onclick="joinClass()" style="width:100%;background:#fff;border:none;border-radius:14px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;color:#0F6E56;font-family:'Noto Sans KR',sans-serif">입장하기</button>
+    <button onclick="skipClass()" style="width:100%;background:none;border:none;color:rgba(255,255,255,.6);font-size:13px;cursor:pointer;margin-top:12px;font-family:'Noto Sans KR',sans-serif">반 코드 없이 개인으로 사용</button>
+  </div>
+  <button onclick="signOut()" style="margin-top:24px;background:none;border:none;color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif">로그아웃</button>
+</div>
+
+<!-- 교사 대시보드 -->
+<div id="teacher-app" style="display:none;max-width:480px;margin:0 auto;min-height:100vh;background:#f0f4f2;flex-direction:column">
+  <!-- 교사 헤더 -->
+  <div style="position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#0F6E56;z-index:200;padding:12px 16px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.1em;color:#fff">👨‍🏫 교사 모드</div>
+        <div id="teacher-class-info" style="font-size:11px;color:rgba(255,255,255,.7)">반 정보 로딩중...</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="showTeacherTab('dashboard')" id="t-tab-dashboard" class="t-tab-btn active-t-tab">📊 대시보드</button>
+        <button onclick="showTeacherTab('students')" id="t-tab-students" class="t-tab-btn">👥 학생</button>
+        <button onclick="showTeacherTab('manage')" id="t-tab-manage" class="t-tab-btn">⚙️ 관리</button>
+        <button onclick="switchToStudentMode()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;padding:5px 10px;font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif">개인모드</button>
+        <button onclick="signOut()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:rgba(255,255,255,.7);padding:5px 10px;font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif">로그아웃</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 교사 탭: 대시보드 -->
+  <div id="t-tab-dashboard-content" style="padding:90px 16px 24px">
+    <!-- 반 전체 통계 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px" id="t-stat-grid"></div>
+
+    <!-- 오늘 훈련 참여 현황 -->
+    <div style="background:#fff;border-radius:14px;border:1px solid #c8d8cc;padding:16px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-weight:700;font-size:15px;color:#111">📋 이번 주 훈련 참여</div>
+        <button onclick="printTeacherReport('attendance')" style="background:#1D9E75;border:none;border-radius:8px;color:#fff;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif">🖨 출력</button>
+      </div>
+      <div id="t-attendance-list"></div>
+    </div>
+
+    <!-- 성장 기록 현황 -->
+    <div style="background:#fff;border-radius:14px;border:1px solid #c8d8cc;padding:16px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-weight:700;font-size:15px;color:#111">📈 학생별 성장 기록</div>
+        <select id="t-growth-type" onchange="renderTeacherGrowth()" style="border:1px solid #c8d8cc;border-radius:8px;padding:4px 8px;font-size:12px;background:#fff;font-family:'Noto Sans KR',sans-serif">
+          <option value="shuttle">셔틀런</option>
+          <option value="longjump">멀리뛰기</option>
+          <option value="run100">100m 기록</option>
+          <option value="run1500">오래달리기</option>
+          <option value="weight">체중</option>
+          <option value="grip">악력</option>
+          <option value="skill">운동기능</option>
+        </select>
+      </div>
+      <canvas id="t-growth-canvas" style="width:100%"></canvas>
+    </div>
+
+    <!-- 목표 달성률 -->
+    <div style="background:#fff;border-radius:14px;border:1px solid #c8d8cc;padding:16px;margin-bottom:14px">
+      <div style="font-weight:700;font-size:15px;color:#111;margin-bottom:12px">🎯 목표 달성 현황</div>
+      <div id="t-goal-summary"></div>
+    </div>
+  </div>
+
+  <!-- 교사 탭: 학생 목록 -->
+  <div id="t-tab-students-content" style="display:none;padding:90px 16px 24px">
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <input type="text" id="t-student-search" placeholder="학생 이름 검색..." onkeyup="renderStudentList()"
+        style="flex:1;border:1px solid #c8d8cc;border-radius:10px;padding:9px 14px;font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none">
+      <button onclick="printTeacherReport('all')" style="background:#1D9E75;border:none;border-radius:10px;color:#fff;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap">🖨 전체 출력</button>
+    </div>
+    <div id="t-student-list"></div>
+  </div>
+
+  <!-- 교사 탭: 반 관리 -->
+  <div id="t-tab-manage-content" style="display:none;padding:90px 16px 24px">
+    <div style="background:#fff;border-radius:14px;border:1px solid #c8d8cc;padding:16px;margin-bottom:14px">
+      <div style="font-weight:700;font-size:15px;color:#111;margin-bottom:14px">🏫 반 코드</div>
+      <div id="t-class-code-display" style="font-family:'Bebas Neue',sans-serif;font-size:40px;letter-spacing:.3em;color:#1D9E75;text-align:center;background:#f0f4f2;border-radius:10px;padding:16px;margin-bottom:10px"></div>
+      <div style="font-size:12px;color:#666;text-align:center;margin-bottom:14px">이 코드를 학생들에게 공유하세요</div>
+      <button onclick="createNewClass()" style="width:100%;background:#1D9E75;border:none;border-radius:10px;color:#fff;padding:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif">새 반 코드 생성</button>
+    </div>
+
+    <div style="background:#fff;border-radius:14px;border:1px solid #c8d8cc;padding:16px;margin-bottom:14px">
+      <div style="font-weight:700;font-size:15px;color:#111;margin-bottom:14px">📋 학생 명단 등록</div>
+      <div style="font-size:12px;color:#666;margin-bottom:10px;line-height:1.6">엑셀에서 학생 이름을 복사해서 붙여넣으세요.<br>한 줄에 한 명씩 입력 (예: 홍길동)</div>
+      <textarea id="t-student-names" rows="8" placeholder="홍길동&#10;김철수&#10;이영희&#10;..."
+        style="width:100%;border:1px solid #c8d8cc;border-radius:10px;padding:10px 14px;font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none;resize:vertical"></textarea>
+      <button onclick="saveStudentList()" style="width:100%;background:#1D9E75;border:none;border-radius:10px;color:#fff;padding:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;margin-top:10px">학생 명단 저장</button>
+    </div>
+
+    <div style="background:#fff;border-radius:14px;border:1px solid #c8d8cc;padding:16px">
+      <div style="font-weight:700;font-size:15px;color:#111;margin-bottom:14px">📊 학급 설정</div>
+      <div class="fg"><label style="font-size:12px;font-weight:700;color:#555;letter-spacing:.06em;text-transform:uppercase">학급 이름</label>
+        <input type="text" id="t-class-name" placeholder="예: 3학년 2반" style="width:100%;border:1px solid #c8d8cc;border-radius:10px;padding:9px 14px;font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none;margin-top:5px">
+      </div>
+      <div class="fg" style="margin-top:10px"><label style="font-size:12px;font-weight:700;color:#555;letter-spacing:.06em;text-transform:uppercase">측정 종목</label>
+        <input type="text" id="t-class-sport" placeholder="예: 체육 (셔틀런, 멀리뛰기)" style="width:100%;border:1px solid #c8d8cc;border-radius:10px;padding:9px 14px;font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none;margin-top:5px">
+      </div>
+      <button onclick="saveClassSettings()" style="width:100%;background:#1D9E75;border:none;border-radius:10px;color:#fff;padding:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif;margin-top:14px">설정 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 학생 상세 모달 -->
+<div id="m-student-detail" class="modal-overlay" onclick="closeOut(event,'m-student-detail')">
+  <div class="modal" style="max-height:92vh">
+    <div class="modal-hd" id="student-detail-name">학생 상세<button class="modal-close" onclick="closeModal('m-student-detail')">×</button></div>
+    <div class="modal-body">
+      <div id="student-detail-content"></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn-save" onclick="printStudentDetail()">🖨 PDF 출력</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.t-tab-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:8px;color:rgba(255,255,255,.7);padding:5px 10px;font-size:11px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .2s}
+.active-t-tab{background:#fff!important;color:#0F6E56!important;font-weight:700}
+.t-student-card{background:#fff;border:1px solid #c8d8cc;border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:border-color .2s}
+.t-student-card:hover{border-color:#1D9E75}
+.t-stat-card{background:#fff;border:1px solid #c8d8cc;border-radius:12px;padding:14px;text-align:center}
+</style>
+
 <!-- 앱 -->
 <div id="app">
   <div class="header">
@@ -647,7 +797,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, doc, addDoc, getDocs, deleteDoc, updateDoc, query, where, serverTimestamp }
+import { getFirestore, collection, doc, addDoc, getDocs, deleteDoc, updateDoc, setDoc, getDoc, query, where, orderBy, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -689,23 +839,458 @@ window.signOut = async () => {
   if(!confirm('로그아웃 하시겠습니까?')) return;
   await fbSignOut(auth);
 };
+// ── 교사 모드 전역 상태 ──────────────────────────────────
+let currentRole = null; // 'teacher' | 'student'
+let classData = null;   // 현재 반 정보
+let allStudentData = {}; // 전체 학생 데이터 캐시
+let currentStudentUid = null; // 상세 보기 중인 학생
+
 onAuthStateChanged(auth, user => {
   if(user) {
     currentUser = user;
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-    document.getElementById('user-name').textContent = user.displayName?.split(' ')[0] || '사용자';
-    document.getElementById('user-photo').src = user.photoURL || '';
-    loadSettings();
-    loadAll();
-    renderCalendar();
-    setTodayInputs();
+    hideAllScreens();
+    checkUserRole();
   } else {
     currentUser = null;
+    hideAllScreens();
     document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('app').style.display = 'none';
   }
 });
+
+function hideAllScreens() {
+  ['login-screen','role-screen','class-screen','app','teacher-app'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = 'none';
+  });
+}
+
+async function checkUserRole() {
+  try {
+    const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+    if(userDoc.exists()) {
+      const data = userDoc.data();
+      currentRole = data.role;
+      if(currentRole === 'teacher') {
+        await loadTeacherData();
+        showTeacherApp();
+      } else {
+        // 학생: 반 코드 있으면 바로 앱
+        showStudentApp();
+      }
+    } else {
+      // 첫 로그인 - 역할 선택
+      document.getElementById('role-screen').style.display = 'flex';
+    }
+  } catch(e) {
+    document.getElementById('role-screen').style.display = 'flex';
+  }
+}
+
+window.selectRole = async (role) => {
+  currentRole = role;
+  await setDoc(doc(db, 'users', currentUser.uid), {
+    role, name: currentUser.displayName || '', email: currentUser.email || '', createdAt: serverTimestamp()
+  }, { merge: true });
+  if(role === 'teacher') {
+    await loadTeacherData();
+    showTeacherApp();
+  } else {
+    hideAllScreens();
+    document.getElementById('class-screen').style.display = 'flex';
+  }
+};
+
+window.joinClass = async () => {
+  const code = document.getElementById('class-code-input').value.trim().toUpperCase();
+  if(!code) return;
+  const errEl = document.getElementById('class-code-error');
+  try {
+    const snap = await getDocs(query(collection(db,'classes'), where('code','==',code)));
+    if(snap.empty) { errEl.style.display='block'; return; }
+    const classDoc = snap.docs[0];
+    await setDoc(doc(db,'users',currentUser.uid), { classCode: code, className: classDoc.data().name||'' }, {merge:true});
+    await updateDoc(doc(db,'classes',classDoc.id), { studentUids: [...(classDoc.data().studentUids||[]).filter(u=>u!==currentUser.uid), currentUser.uid] });
+    errEl.style.display='none';
+    showStudentApp();
+  } catch(e) { errEl.style.display='block'; }
+};
+
+window.skipClass = () => showStudentApp();
+
+function showStudentApp() {
+  hideAllScreens();
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('user-name').textContent = currentUser.displayName?.split(' ')[0] || '사용자';
+  document.getElementById('user-photo').src = currentUser.photoURL || '';
+  loadSettings(); loadAll(); renderCalendar(); setTodayInputs();
+}
+
+window.switchToStudentMode = () => showStudentApp();
+
+// ── 교사 모드 ────────────────────────────────────────────
+async function loadTeacherData() {
+  try {
+    const snap = await getDocs(query(collection(db,'classes'), where('teacherUid','==',currentUser.uid)));
+    if(!snap.empty) {
+      classData = { id: snap.docs[0].id, ...snap.docs[0].data() };
+    }
+  } catch(e) {}
+}
+
+function showTeacherApp() {
+  hideAllScreens();
+  document.getElementById('teacher-app').style.display = 'flex';
+  if(classData) {
+    document.getElementById('teacher-class-info').textContent =
+      `${classData.name||'반 이름 없음'} · 코드: ${classData.code||'-'} · 학생 ${(classData.studentUids||[]).length}명`;
+    document.getElementById('t-class-code-display').textContent = classData.code || '-';
+    document.getElementById('t-class-name').value = classData.name || '';
+    document.getElementById('t-class-sport').value = classData.sport || '';
+    if(classData.studentNames) document.getElementById('t-student-names').value = classData.studentNames;
+  }
+  loadAllStudentData();
+}
+
+window.showTeacherTab = tab => {
+  ['dashboard','students','manage'].forEach(t => {
+    document.getElementById(`t-tab-${t}-content`).style.display = t===tab?'block':'none';
+    const btn = document.getElementById(`t-tab-${t}`);
+    if(btn) { btn.classList.toggle('active-t-tab', t===tab); }
+  });
+};
+
+window.createNewClass = async () => {
+  const code = Math.random().toString(36).substr(2,6).toUpperCase();
+  const name = document.getElementById('t-class-name').value || '새 반';
+  const sport = document.getElementById('t-class-sport').value || '';
+  const ref = await addDoc(collection(db,'classes'), {
+    code, name, sport, teacherUid: currentUser.uid, studentUids: [], createdAt: serverTimestamp()
+  });
+  classData = { id: ref.id, code, name, sport, teacherUid: currentUser.uid, studentUids: [] };
+  await setDoc(doc(db,'users',currentUser.uid), { classId: ref.id }, {merge:true});
+  document.getElementById('t-class-code-display').textContent = code;
+  document.getElementById('teacher-class-info').textContent = `${name} · 코드: ${code} · 학생 0명`;
+  showToast('반 코드 생성: ' + code);
+};
+
+window.saveClassSettings = async () => {
+  if(!classData) { showToast('먼저 반 코드를 생성해주세요'); return; }
+  const name  = document.getElementById('t-class-name').value;
+  const sport = document.getElementById('t-class-sport').value;
+  await updateDoc(doc(db,'classes',classData.id), { name, sport });
+  classData.name = name; classData.sport = sport;
+  document.getElementById('teacher-class-info').textContent =
+    `${name} · 코드: ${classData.code} · 학생 ${(classData.studentUids||[]).length}명`;
+  showToast('설정 저장 완료 ✓');
+};
+
+window.saveStudentList = async () => {
+  if(!classData) { showToast('먼저 반 코드를 생성해주세요'); return; }
+  const names = document.getElementById('t-student-names').value;
+  await updateDoc(doc(db,'classes',classData.id), { studentNames: names });
+  classData.studentNames = names;
+  showToast('학생 명단 저장 완료 ✓');
+  renderStudentList();
+};
+
+// ── 학생 데이터 로드 ──────────────────────────────────────
+async function loadAllStudentData() {
+  if(!classData || !(classData.studentUids||[]).length) {
+    renderTeacherDashboard();
+    renderStudentList();
+    return;
+  }
+  allStudentData = {};
+  const uids = classData.studentUids || [];
+  // 각 학생별 데이터 병렬 로드
+  await Promise.all(uids.map(async uid => {
+    const [logsSnap, growthSnap, goalsSnap] = await Promise.all([
+      getDocs(query(collection(db,'logs'), where('uid','==',uid))),
+      getDocs(query(collection(db,'growth'), where('uid','==',uid))),
+      getDocs(query(collection(db,'goals'), where('uid','==',uid))),
+    ]);
+    // 유저 정보
+    let userInfo = { name: uid, email:'' };
+    try { const ud = await getDoc(doc(db,'users',uid)); if(ud.exists()) userInfo={...ud.data()}; } catch(e){}
+    allStudentData[uid] = {
+      uid, name: userInfo.name||userInfo.displayName||'이름없음', email: userInfo.email||'',
+      logs:   logsSnap.docs.map(d=>({id:d.id,...d.data()})),
+      growth: growthSnap.docs.map(d=>({id:d.id,...d.data()})),
+      goals:  goalsSnap.docs.map(d=>({id:d.id,...d.data()})),
+    };
+  }));
+  renderTeacherDashboard();
+  renderStudentList();
+  renderTeacherGrowth();
+}
+
+// ── 교사 대시보드 렌더 ────────────────────────────────────
+function renderTeacherDashboard() {
+  const students = Object.values(allStudentData);
+  const now = new Date();
+  const yw = getWeekStart(now);
+  const totalStudents = (classData?.studentUids||[]).length;
+  const activeStudents = students.filter(s => s.logs.some(l => new Date(l.date) >= yw)).length;
+  const totalLogs = students.reduce((s,st)=>s+st.logs.length,0);
+  const goalDone = students.reduce((s,st)=>s+st.goals.filter(g=>g.status==='달성').length,0);
+
+  document.getElementById('t-stat-grid').innerHTML = `
+    <div class="t-stat-card"><div style="font-size:11px;color:#555;margin-bottom:6px;font-weight:600">등록 학생</div><div style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:#1D9E75">${totalStudents}</div><div style="font-size:11px;color:#888">명</div></div>
+    <div class="t-stat-card"><div style="font-size:11px;color:#555;margin-bottom:6px;font-weight:600">이번 주 참여</div><div style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:#1D9E75">${activeStudents}</div><div style="font-size:11px;color:#888">명</div></div>
+    <div class="t-stat-card"><div style="font-size:11px;color:#555;margin-bottom:6px;font-weight:600">전체 훈련 기록</div><div style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:#1D9E75">${totalLogs}</div><div style="font-size:11px;color:#888">건</div></div>
+    <div class="t-stat-card"><div style="font-size:11px;color:#555;margin-bottom:6px;font-weight:600">달성된 목표</div><div style="font-family:'Bebas Neue',sans-serif;font-size:32px;color:#1D9E75">${goalDone}</div><div style="font-size:11px;color:#888">개</div></div>`;
+
+  // 출석 현황
+  const nameMap = getStudentNameMap();
+  const uids = classData?.studentUids || [];
+  const attHTML = uids.map(uid => {
+    const s = allStudentData[uid];
+    const name = s?.name || nameMap[uid] || uid.slice(0,8);
+    const weekLogs = s?.logs.filter(l=>new Date(l.date)>=yw).length || 0;
+    const totalLog = s?.logs.length || 0;
+    const pct = Math.min(100, weekLogs * 33);
+    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="width:70px;font-size:13px;font-weight:600;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+      <div style="flex:1;background:#e8ede9;border-radius:10px;height:8px">
+        <div style="background:${weekLogs>0?'#1D9E75':'#d1d5db'};width:${pct}%;height:8px;border-radius:10px;transition:width .5s"></div>
+      </div>
+      <div style="font-size:12px;color:${weekLogs>0?'#1D9E75':'#aaa'};font-weight:700;white-space:nowrap">이번주 ${weekLogs}회</div>
+      <div style="font-size:11px;color:#aaa">총${totalLog}</div>
+    </div>`;
+  }).join('') || '<div style="color:#aaa;font-size:13px;text-align:center;padding:16px">연결된 학생이 없습니다</div>';
+  document.getElementById('t-attendance-list').innerHTML = attHTML;
+
+  // 목표 달성률
+  const goalHTML = uids.map(uid => {
+    const s = allStudentData[uid];
+    if(!s) return '';
+    const name = s.name;
+    const done = s.goals.filter(g=>g.status==='달성').length;
+    const total = s.goals.length;
+    const pct = total ? Math.round(done/total*100) : 0;
+    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="width:70px;font-size:13px;font-weight:600;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
+      <div style="flex:1;background:#e8ede9;border-radius:10px;height:8px">
+        <div style="background:#1D9E75;width:${pct}%;height:8px;border-radius:10px"></div>
+      </div>
+      <div style="font-size:12px;color:#1D9E75;font-weight:700">${done}/${total} (${pct}%)</div>
+    </div>`;
+  }).join('') || '<div style="color:#aaa;font-size:13px;text-align:center;padding:16px">목표 데이터 없음</div>';
+  document.getElementById('t-goal-summary').innerHTML = goalHTML;
+}
+
+// ── 성장 기록 비교 차트 ───────────────────────────────────
+window.renderTeacherGrowth = () => {
+  const type = document.getElementById('t-growth-type')?.value || 'shuttle';
+  const canvas = document.getElementById('t-growth-canvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const students = Object.values(allStudentData);
+  // 각 학생의 최신값
+  const data = students.map(s => {
+    const recs = s.growth.filter(g=>g.type===type).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+    return { name: s.name.length>4?s.name.slice(0,4):s.name, value: recs.length?Number(recs[0].value):0, date: recs[0]?.date||'' };
+  }).filter(d=>d.value>0).sort((a,b)=>b.value-a.value);
+
+  const W = canvas.parentElement.clientWidth||400;
+  canvas.width=W; canvas.height=Math.max(120, data.length*36+40);
+  ctx.clearRect(0,0,W,canvas.height);
+
+  if(!data.length) {
+    ctx.fillStyle='#aaa'; ctx.font='13px Arial'; ctx.textAlign='center';
+    ctx.fillText('학생들의 성장 기록이 없습니다',W/2,canvas.height/2); return;
+  }
+  const maxVal = Math.max(...data.map(d=>d.value));
+  const barH = 24, pad = {t:10,l:60,r:70,b:10};
+  data.forEach((d,i) => {
+    const y = pad.t + i*(barH+8);
+    const barW = (d.value/maxVal)*(W-pad.l-pad.r);
+    // 이름
+    ctx.fillStyle='#111'; ctx.font='bold 12px Arial'; ctx.textAlign='right';
+    ctx.fillText(d.name, pad.l-6, y+16);
+    // 막대
+    const g=ctx.createLinearGradient(pad.l,0,pad.l+barW,0);
+    g.addColorStop(0,'#1D9E75'); g.addColorStop(1,'#a7f3d0');
+    ctx.fillStyle=g;
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(pad.l,y,barW,barH,4); else ctx.rect(pad.l,y,barW,barH);
+    ctx.fill();
+    // 값
+    ctx.fillStyle='#0F6E56'; ctx.font='bold 12px Arial'; ctx.textAlign='left';
+    ctx.fillText(d.value, pad.l+barW+6, y+16);
+  });
+  canvas.style.height = canvas.height + 'px';
+};
+
+// ── 학생 목록 렌더 ────────────────────────────────────────
+window.renderStudentList = () => {
+  const keyword = document.getElementById('t-student-search')?.value.toLowerCase() || '';
+  const uids = classData?.studentUids || [];
+  const nameMap = getStudentNameMap();
+
+  const html = uids.filter(uid => {
+    const s = allStudentData[uid];
+    const name = s?.name || nameMap[uid] || '';
+    return !keyword || name.toLowerCase().includes(keyword);
+  }).map(uid => {
+    const s = allStudentData[uid] || {};
+    const name = s.name || nameMap[uid] || uid.slice(0,8);
+    const totalLogs = s.logs?.length || 0;
+    const latestLog = s.logs?.sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
+    const goalDone = s.goals?.filter(g=>g.status==='달성').length || 0;
+    const goalTotal = s.goals?.length || 0;
+    const shuttle = s.growth?.filter(g=>g.type==='shuttle').sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0]?.value || '-';
+    const longjump = s.growth?.filter(g=>g.type==='longjump').sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0]?.value || '-';
+    return `<div class="t-student-card" onclick="showStudentDetail('${uid}')">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:15px;font-weight:700;color:#111">🧑‍🎓 ${name}</div>
+        <span style="font-size:11px;background:#E1F5EE;color:#0F6E56;border-radius:20px;padding:3px 10px;font-weight:700">훈련 ${totalLogs}회</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:12px;color:#555">
+        <span style="background:#f5f7f6;border-radius:8px;padding:2px 8px">최근: ${latestLog?.date||'-'}</span>
+        <span style="background:#f5f7f6;border-radius:8px;padding:2px 8px">목표 ${goalDone}/${goalTotal} 달성</span>
+        <span style="background:#f5f7f6;border-radius:8px;padding:2px 8px">셔틀런 ${shuttle}회</span>
+        <span style="background:#f5f7f6;border-radius:8px;padding:2px 8px">멀리뛰기 ${longjump}cm</span>
+      </div>
+    </div>`;
+  }).join('') || '<div style="color:#aaa;font-size:14px;text-align:center;padding:32px">연결된 학생이 없습니다<br><span style="font-size:12px">학생들이 반 코드를 입력하면 여기 나타납니다</span></div>';
+
+  document.getElementById('t-student-list').innerHTML = html;
+};
+
+// ── 학생 상세 모달 ────────────────────────────────────────
+window.showStudentDetail = uid => {
+  const s = allStudentData[uid];
+  if(!s) return;
+  currentStudentUid = uid;
+  document.getElementById('student-detail-name').innerHTML =
+    `🧑‍🎓 ${s.name} 상세 기록<button class="modal-close" onclick="closeModal('m-student-detail')">×</button>`;
+
+  const recentLogs = [...(s.logs||[])].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,5);
+  const growthTypes = ['shuttle','longjump','run100','run1500','weight','grip','skill'];
+  const growthHTML = growthTypes.map(type => {
+    const recs = (s.growth||[]).filter(g=>g.type===type).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+    if(!recs.length) return '';
+    const latest = recs[0];
+    const prev = recs[1];
+    const diff = prev ? (latest.value - prev.value).toFixed(1) : null;
+    const GMETA = {shuttle:'셔틀런',longjump:'멀리뛰기',run100:'100m',run1500:'오래달리기',weight:'체중',grip:'악력',skill:'운동기능'};
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0">
+      <span style="font-size:13px;color:#555">${GMETA[type]||type}</span>
+      <span style="font-size:14px;font-weight:700;color:#1D9E75">${latest.value} ${latest.unit||''}</span>
+      ${diff!==null?`<span style="font-size:11px;color:${parseFloat(diff)>=0?'#1D9E75':'#ef4444'}">${parseFloat(diff)>=0?'+':''}${diff}</span>`:'<span></span>'}
+    </div>`;
+  }).join('');
+
+  const logsHTML = recentLogs.map(l=>`
+    <div style="padding:8px 0;border-bottom:1px solid #f0f0f0">
+      <div style="font-size:13px;font-weight:600;color:#111">${l.date} · ${l.sport||''} ${l.type||''}</div>
+      ${l.good?`<div style="font-size:12px;color:#555;margin-top:2px">✅ ${l.good}</div>`:''}
+      ${l.improve?`<div style="font-size:12px;color:#555">🔧 ${l.improve}</div>`:''}
+    </div>`).join('');
+
+  const goalsHTML = (s.goals||[]).map(g=>{
+    const pct = g.target?Math.min(100,Math.round(Number(g.current)/Number(g.target)*100)):null;
+    const statusIcon = {진행중:'🔥',달성:'✅',포기:'❌',보류:'⏸'}[g.status||'진행중']||'🎯';
+    return `<div style="padding:8px 0;border-bottom:1px solid #f0f0f0">
+      <div style="font-size:13px;font-weight:600;color:#111">${statusIcon} ${g.title||''}</div>
+      ${pct!==null?`<div style="background:#e8ede9;border-radius:6px;height:6px;margin-top:5px"><div style="background:#1D9E75;width:${pct}%;height:6px;border-radius:6px"></div></div><div style="font-size:11px;color:#1D9E75;text-align:right;margin-top:2px">${pct}%</div>`:''}
+    </div>`;
+  }).join('');
+
+  document.getElementById('student-detail-content').innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:#555;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">📈 성장 기록</div>
+      ${growthHTML || '<div style="color:#aaa;font-size:13px">기록 없음</div>'}
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:700;color:#555;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">📋 최근 훈련일지</div>
+      ${logsHTML || '<div style="color:#aaa;font-size:13px">기록 없음</div>'}
+    </div>
+    <div>
+      <div style="font-size:12px;font-weight:700;color:#555;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">🎯 목표 현황</div>
+      ${goalsHTML || '<div style="color:#aaa;font-size:13px">목표 없음</div>'}
+    </div>`;
+
+  openModal('m-student-detail');
+};
+
+// ── PDF 출력 ──────────────────────────────────────────────
+window.printStudentDetail = () => {
+  const s = allStudentData[currentStudentUid]; if(!s) return;
+  const win = window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>${s.name} 기록</title>
+    <style>body{font-family:'Noto Sans KR',sans-serif;padding:24px;color:#111;font-size:13px}
+    h1{color:#1D9E75;font-size:20px;margin-bottom:4px}h2{font-size:14px;margin:16px 0 8px;border-bottom:2px solid #1D9E75;padding-bottom:4px}
+    .row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee}
+    .val{font-weight:700;color:#1D9E75}.footer{margin-top:32px;font-size:11px;color:#aaa;text-align:center}</style></head><body>
+    <h1>🧑‍🎓 ${s.name} 운동 기록 보고서</h1>
+    <div style="font-size:12px;color:#666;margin-bottom:16px">출력일: ${new Date().toLocaleDateString('ko-KR')} · ${classData?.name||''}</div>
+    <h2>📈 성장 기록</h2>
+    ${['shuttle','longjump','run100','run1500','weight','grip','skill'].map(type=>{
+      const recs=(s.growth||[]).filter(g=>g.type===type).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+      if(!recs.length) return '';
+      const GMETA={shuttle:'셔틀런',longjump:'멀리뛰기',run100:'100m',run1500:'오래달리기',weight:'체중',grip:'악력',skill:'운동기능'};
+      return `<div class="row"><span>${GMETA[type]}</span><span class="val">${recs[0].value} ${recs[0].unit||''}</span><span style="color:#888">${recs[0].date}</span></div>`;
+    }).join('')}
+    <h2>📋 훈련일지 (최근 10건)</h2>
+    ${[...(s.logs||[])].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,10).map(l=>
+      `<div class="row"><span>${l.date} ${l.sport||''} ${l.type||''}</span><span>${l.duration||0}분</span><span class="val">${['★'.repeat(Number(l.rating)||0)]}</span></div>`
+    ).join('')}
+    <h2>🎯 목표 현황</h2>
+    ${(s.goals||[]).map(g=>`<div class="row"><span>${g.title||''}</span><span class="val">${g.status||'진행중'}</span></div>`).join('')}
+    <div class="footer">© 김정환 · SPORT LOG</div>
+    </body></html>`);
+  win.document.close();
+  setTimeout(()=>win.print(), 500);
+};
+
+window.printTeacherReport = type => {
+  const win = window.open('','_blank');
+  const uids = classData?.studentUids || [];
+  const rows = uids.map(uid => {
+    const s = allStudentData[uid] || {};
+    const name = s.name || uid.slice(0,8);
+    const totalLogs = s.logs?.length || 0;
+    const now = new Date(); const yw = getWeekStart(now);
+    const weekLogs = s.logs?.filter(l=>new Date(l.date)>=yw).length || 0;
+    const shuttle = s.growth?.filter(g=>g.type==='shuttle').sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0]?.value || '-';
+    const longjump = s.growth?.filter(g=>g.type==='longjump').sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0]?.value || '-';
+    const goalDone = s.goals?.filter(g=>g.status==='달성').length || 0;
+    const goalTotal = s.goals?.length || 0;
+    return `<tr><td>${name}</td><td>${totalLogs}</td><td>${weekLogs}</td><td>${shuttle}</td><td>${longjump}</td><td>${goalDone}/${goalTotal}</td></tr>`;
+  }).join('');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>학급 기록 보고서</title>
+    <style>body{font-family:'Noto Sans KR',sans-serif;padding:24px;font-size:13px}
+    h1{color:#1D9E75;font-size:18px;margin-bottom:4px}
+    table{width:100%;border-collapse:collapse;margin-top:16px}
+    th{background:#1D9E75;color:#fff;padding:8px 12px;text-align:left;font-size:12px}
+    td{padding:7px 12px;border-bottom:1px solid #eee}tr:nth-child(even){background:#f9f9f9}
+    .footer{margin-top:32px;font-size:11px;color:#aaa;text-align:center}</style></head><body>
+    <h1>📊 ${classData?.name||'학급'} 운동 기록 종합 보고서</h1>
+    <div style="font-size:12px;color:#666;margin-bottom:4px">출력일: ${new Date().toLocaleDateString('ko-KR')}</div>
+    <table><thead><tr><th>이름</th><th>총 훈련</th><th>이번 주</th><th>셔틀런</th><th>멀리뛰기</th><th>목표 달성</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <div class="footer">© 김정환 · SPORT LOG</div></body></html>`);
+  win.document.close();
+  setTimeout(()=>win.print(), 500);
+};
+
+// ── 유틸 ──────────────────────────────────────────────────
+function getWeekStart(date) {
+  const d = new Date(date);
+  d.setDate(d.getDate() - d.getDay());
+  d.setHours(0,0,0,0);
+  return d;
+}
+function getStudentNameMap() {
+  if(!classData?.studentNames) return {};
+  const names = classData.studentNames.split('\n').map(n=>n.trim()).filter(Boolean);
+  const map = {};
+  (classData.studentUids||[]).forEach((uid,i) => { if(names[i]) map[uid] = names[i]; });
+  return map;
+}
 
 // ── 설정 로드/저장 ────────────────────────────────────────
 function loadSettings() {
