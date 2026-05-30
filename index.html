@@ -1047,10 +1047,8 @@ window.saveStudentList = async () => {
   if(!classData) { showToast('먼저 설정 저장으로 학급을 만들어주세요'); return; }
   const raw = document.getElementById('t-student-names').value;
   // 탭/여러 공백/빈줄 정리 - 엑셀 붙여넣기 대응
-  const cleaned = raw.split(/[
-
-]/)
-    .map(line => line.replace(/	/g, ' ').trim())  // 탭을 공백으로
+  const cleaned = raw.split("\n")
+    .map(line => line.replace(/\t/g, ' ').trim())  // 탭을 공백으로
     .map(line => line.split(' ').filter(x=>x)[0] || '')  // 첫 번째 단어만 (이름만)
     .filter(n => n.length > 0)
     .join('
@@ -1075,9 +1073,9 @@ window.clearStudentNames = () => {
 
 window.updateStudentCount = () => {
   const val = document.getElementById('t-student-names').value;
-  const count = val.split('
-').filter(n=>n.trim()).length;
-  document.getElementById('t-student-count').textContent = count;
+  const cnt = val.split('
+').filter(function(n){ return n.trim(); }).length;
+  document.getElementById('t-student-count').textContent = cnt;
 };
 
 // ── 학생 데이터 로드 ──────────────────────────────────────
