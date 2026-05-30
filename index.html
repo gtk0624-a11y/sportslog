@@ -4,804 +4,198 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>SPORT LOG</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
-
-<!-- Firebase SDK -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc,
-  query, where, orderBy, onSnapshot, serverTimestamp }
-  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-// ══════════════════════════════════════════════
-// 🔥 여기에 Firebase 설정값을 붙여넣으세요
-// ══════════════════════════════════════════════
-const firebaseConfig = {
-  apiKey: "AIzaSyDak_jmHLaqYBGbrK91C_ceZbV2MiLf_GY",
-  authDomain: "sports-19ecd.firebaseapp.com",
-  projectId: "sports-19ecd",
-  storageBucket: "sports-19ecd.firebasestorage.app",
-  messagingSenderId: "460834209817",
-  appId: "1:460834209817:web:3166dc9c1719c50763aa88"
-};
-// ══════════════════════════════════════════════
-
-const app  = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
-const db   = getFirestore(app);
-
-// ── 앱 설정 (편집 가능) ────────────────────────────────────
-window.APP_CONFIG = {
-  title:    "SPORT LOG",
-  subtitle: "오늘도 기록한다",
-  sports: ["배드민턴","수영","헬스","축구","농구","테니스","달리기","자전거","기타"],
-  logTypes: ["훈련","레슨","대회","자체게임","기타"],
-  routineCategories: ["웜업","기술훈련","체력훈련","쿨다운","기타"],
-  equipmentCategories: ["라켓/장비","신발","의류","스트링/거트","보호대","기타"],
-  memoCategories: ["훈련팁","전략/전술","목표/계획","부상/건강","기타"],
-  eventTypes: ["훈련","레슨","대회","시합","기타"],
-  videoCategories: ["기술/전략","체력훈련","경기분석","동기부여","기타"],
-  conditions: ["최상","좋음","보통","피로","부상"],
-};
-
-// ── 전역 상태 ──────────────────────────────────────────────
-let currentUser = null;
-let currentSport = "전체";
-let calYear, calMonth;
-let starVal = 3;
-let unsubscribes = [];
-
-// 로컬 캐시
-let logs=[], routines=[], events=[], videos=[], memos=[], equipments=[], goals=[];
-
-// ── Auth ───────────────────────────────────────────────────
-function showApp(user) {
-  currentUser = user;
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app-screen').style.display  = 'flex';
-  document.getElementById('user-name').textContent = user.displayName?.split(' ')[0] || '사용자';
-  document.getElementById('user-avatar').src = user.photoURL || '';
-  subscribeAll();
-  initCalendar();
-  setTodayInputs();
-  renderAppTitle();
-}
-
-function showLogin() {
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('app-screen').style.display  = 'none';
-  unsubscribes.forEach(u => u());
-  unsubscribes = [];
-}
-
-// 로그인 상태 감지
-onAuthStateChanged(auth, user => {
-  currentUser = user;
-  if (user) {
-    showApp(user);
-  } else {
-    showLogin();
-  }
-});
-
-window.loginGoogle = async () => {
-  try {
-    await signInWithPopup(auth, provider);
-  } catch(e) { showToast('로그인 실패: ' + e.message); }
-};
-
-window.logoutUser = async () => {
-  if (!confirm('로그아웃 할까요?')) return;
-  await signOut(auth);
-};
-
-// ── Firestore 실시간 구독 ──────────────────────────────────
-function subscribeAll() {
-  const uid = currentUser.uid;
-  const sub = (col, arr, render) => {
-    const q = query(collection(db, col), where('uid','==',uid));
-    return onSnapshot(q, snap => {
-      arr.length = 0;
-      snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
-      render();
-    });
-  };
-  unsubscribes.push(
-    sub('logs',       logs,       () => { renderLogs(); renderDashboard(); renderStats(); }),
-    sub('routines',   routines,   renderRoutines),
-    sub('events',     events,     () => { renderEventList(); renderCalendar(); renderDashboard(); }),
-    sub('videos',     videos,     renderVideos),
-    sub('memos',      memos,      renderMemos),
-    sub('equipments', equipments, renderEquipments),
-    sub('goals',      goals,      renderGoals),
-  );
-}
-
-// ── CRUD 헬퍼 ─────────────────────────────────────────────
-async function addItem(col, data) {
-  await addDoc(collection(db, col), { ...data, uid: currentUser.uid, createdAt: serverTimestamp() });
-}
-async function updateItem(col, id, data) {
-  await updateDoc(doc(db, col, id), { ...data, updatedAt: serverTimestamp() });
-}
-async function deleteItem(col, id) {
-  await deleteDoc(doc(db, col, id));
-}
-
-// ── 앱 제목 렌더 ──────────────────────────────────────────
-function renderAppTitle() {
-  document.querySelector('.brand-title').textContent = window.APP_CONFIG.title;
-  document.querySelector('.brand-sub').textContent   = window.APP_CONFIG.subtitle;
-  document.title = window.APP_CONFIG.title;
-}
-
-// ── 설정 편집 모달 ────────────────────────────────────────
-window.openSettings = () => {
-  const cfg = window.APP_CONFIG;
-  document.getElementById('cfg-title').value    = cfg.title;
-  document.getElementById('cfg-subtitle').value = cfg.subtitle;
-  document.getElementById('cfg-sports').value   = cfg.sports.join(', ');
-  openModal('modal-settings');
-};
-
-window.saveSettings = () => {
-  const cfg = window.APP_CONFIG;
-  cfg.title    = document.getElementById('cfg-title').value.trim() || cfg.title;
-  cfg.subtitle = document.getElementById('cfg-subtitle').value.trim() || cfg.subtitle;
-  const sp = document.getElementById('cfg-sports').value;
-  if (sp.trim()) cfg.sports = sp.split(',').map(s=>s.trim()).filter(Boolean);
-  renderAppTitle();
-  rebuildSportOptions();
-  closeModal('modal-settings');
-  showToast('설정 저장 완료 ✓');
-};
-
-function rebuildSportOptions() {
-  const sports = window.APP_CONFIG.sports;
-  document.querySelectorAll('.sport-select').forEach(sel => {
-    const cur = sel.value;
-    sel.innerHTML = sports.map(s=>`<option>${s}</option>`).join('');
-    if (sports.includes(cur)) sel.value = cur;
-  });
-  const gs = document.getElementById('global-sport');
-  const curG = gs.value;
-  gs.innerHTML = `<option value="전체">전체 종목</option>` +
-    sports.map(s=>`<option>${s}</option>`).join('');
-  if (curG) gs.value = curG;
-}
-
-// ── 탭 전환 ───────────────────────────────────────────────
-window.showTab = name => {
-  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
-  document.getElementById('tab-'+name).classList.add('active');
-  const map={dashboard:0,log:1,routine:2,calendar:3,stats:4,goal:5,video:6,equipment:7,memo:8};
-  const btns = document.querySelectorAll('.nav button');
-  if (map[name] !== undefined) btns[map[name]].classList.add('active');
-  if (name==='calendar') renderCalendar();
-  if (name==='stats')    renderStats();
-};
-
-// ── 종목 필터 ─────────────────────────────────────────────
-window.onSportChange = val => {
-  currentSport = val;
-  renderLogs(); renderRoutines(); renderVideos();
-  renderEquipments(); renderGoals(); renderDashboard();
-};
-const filterSport = arr => currentSport==='전체' ? arr : arr.filter(x=>x.sport===currentSport);
-
-// ── 대시보드 ──────────────────────────────────────────────
-function renderDashboard() {
-  const now = new Date();
-  const ym  = now.toISOString().slice(0,7);
-  const yr  = now.toISOString().slice(0,4);
-  const fl  = filterSport(logs);
-  const mL  = fl.filter(l=>String(l.date||'').slice(0,7)===ym);
-  const yL  = fl.filter(l=>String(l.date||'').slice(0,4)===yr);
-  const vR  = fl.filter(l=>l.rating);
-  const avg = vR.length ? (vR.reduce((s,l)=>s+Number(l.rating),0)/vR.length).toFixed(1) : '-';
-
-  setText('s-month',     mL.length);
-  setText('s-month-min', mL.reduce((s,l)=>s+(Number(l.duration)||0),0));
-  setText('s-year',      yL.length);
-  setText('s-rating',    avg);
-
-  const today = now.toISOString().slice(0,10);
-  const upcoming = filterSport(events)
-    .filter(e=>String(e.date||'')>=today)
-    .sort((a,b)=>String(a.date).localeCompare(String(b.date))).slice(0,3);
-  const ul = document.getElementById('upcoming-list');
-  ul.innerHTML = upcoming.length ? upcoming.map(e=>{
-    const d = Math.ceil((new Date(e.date)-now)/(864e5));
-    return `<div class="card" onclick="showTab('calendar')">
-      <div class="card-header"><span class="card-title">${e.title||''}</span>
-      <span class="card-badge badge-blue">D-${d}</span></div>
-      <div class="card-sub">${e.date} · ${e.sport||''} · ${e.type||''}</div></div>`;
-  }).join('') : '<div class="empty-msg">다가오는 일정 없음</div>';
-
-  const recent = [...fl].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,5);
-  document.getElementById('recent-list').innerHTML =
-    recent.length ? recent.map(buildLogCard).join('') : '<div class="empty-msg">기록된 훈련이 없습니다</div>';
-}
-
-// ── 훈련 일지 ─────────────────────────────────────────────
-function renderLogs() {
-  let data = filterSport(logs);
-  const ft = document.getElementById('log-filter-type')?.value;
-  const fm = document.getElementById('log-filter-month')?.value;
-  if(ft) data = data.filter(l=>l.type===ft);
-  if(fm) data = data.filter(l=>String(l.date||'').slice(0,7)===fm);
-  data.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
-  const el = document.getElementById('log-list');
-  el.innerHTML = data.length ? data.map(buildLogCard).join('') : '<div class="empty-msg">기록이 없습니다</div>';
-}
-
-function buildLogCard(l) {
-  const stars = '★'.repeat(Number(l.rating)||0)+'☆'.repeat(5-(Number(l.rating)||0));
-  const badgeMap = {최상:'badge-green',좋음:'badge-green',보통:'badge-blue',피로:'badge-orange',부상:'badge-red'};
-  return `<div class="card" onclick="openLogEdit('${l.id}')">
-    <div class="card-header">
-      <span class="card-title">${l.sport||''} ${l.type||''} · ${l.place||''}</span>
-      <span class="card-badge ${badgeMap[l.condition]||'badge-blue'}">${l.condition||''}</span>
-    </div>
-    <div class="card-sub">${l.date||''} · ${l.duration||0}분 · ${l.partner||'-'}</div>
-    <div class="card-meta">
-      ${l.focus?`<span class="meta-chip">🎯 ${l.focus}</span>`:''}
-      <span class="meta-chip" style="color:#f59e0b">${stars}</span>
-    </div>
-    ${l.good?`<div class="card-sub" style="margin-top:4px">✅ ${l.good}</div>`:''}
-  </div>`;
-}
-
-window.openLogModal = () => {
-  clearModal('modal-log');
-  document.getElementById('log-del-btn').style.display='none';
-  openModal('modal-log');
-};
-window.openLogEdit = id => {
-  const l = logs.find(x=>x.id===id); if(!l) return;
-  setVal('log-edit-id', l.id);
-  setVal('log-date',     l.date);
-  setSel('log-sport',    l.sport);
-  setSel('log-type',     l.type);
-  setVal('log-duration', l.duration);
-  setVal('log-place',    l.place);
-  setVal('log-partner',  l.partner);
-  setVal('log-focus',    l.focus);
-  setVal('log-good',     l.good);
-  setVal('log-improve',  l.improve);
-  setSel('log-condition',l.condition);
-  setStar(Number(l.rating)||3);
-  setVal('log-memo',     l.memo);
-  document.getElementById('log-del-btn').style.display='inline-flex';
-  openModal('modal-log');
-};
-window.saveLog = async () => {
-  const id = getVal('log-edit-id');
-  const data = {
-    date:      getVal('log-date'),
-    sport:     getVal('log-sport'),
-    type:      getVal('log-type'),
-    duration:  getVal('log-duration'),
-    place:     getVal('log-place'),
-    partner:   getVal('log-partner'),
-    focus:     getVal('log-focus'),
-    good:      getVal('log-good'),
-    improve:   getVal('log-improve'),
-    condition: getVal('log-condition'),
-    rating:    getVal('log-rating'),
-    memo:      getVal('log-memo'),
-  };
-  try {
-    id ? await updateItem('logs', id, data) : await addItem('logs', data);
-    closeModal('modal-log'); showToast('저장 완료 ✓');
-  } catch(e) { showToast('오류: '+e.message); }
-};
-window.deleteLog = async () => {
-  const id = getVal('log-edit-id'); if(!id) return;
-  if(!confirm('삭제할까요?')) return;
-  await deleteItem('logs', id);
-  closeModal('modal-log'); showToast('삭제 완료');
-};
-
-// ── 루틴 ──────────────────────────────────────────────────
-function renderRoutines() {
-  let data = filterSport(routines);
-  const fs = document.getElementById('routine-filter-sport')?.value;
-  const fc = document.getElementById('routine-filter-cat')?.value;
-  if(fs) data=data.filter(r=>r.sport===fs);
-  if(fc) data=data.filter(r=>r.category===fc);
-  const order=['웜업','기술훈련','체력훈련','쿨다운','기타'];
-  const grouped={};
-  data.forEach(r=>{ const c=r.category||'기타'; (grouped[c]=grouped[c]||[]).push(r); });
-  const el=document.getElementById('routine-list');
-  el.innerHTML = Object.keys(grouped).length ? order.filter(c=>grouped[c]).map(c=>`
-    <div style="margin-bottom:18px">
-      <div class="section-title">${c}</div>
-      ${grouped[c].map(r=>`<div class="card" onclick="openRoutineEdit('${r.id}')">
-        <div class="card-header">
-          <span class="card-title">${r.name||''}</span>
-          <span class="card-badge badge-green">${r.sport||''}</span>
-        </div>
-        <div class="card-sub">${r.sets?r.sets+'세트':''} ${r.reps||''} ${r.memo?'· '+r.memo:''}</div>
-      </div>`).join('')}
-    </div>`).join('') : '<div class="empty-msg">루틴이 없습니다</div>';
-}
-window.openRoutineModal = () => { clearModal('modal-routine'); document.getElementById('routine-del-btn').style.display='none'; openModal('modal-routine'); };
-window.openRoutineEdit = id => {
-  const r=routines.find(x=>x.id===id); if(!r) return;
-  setVal('routine-edit-id',r.id); setSel('routine-sport',r.sport); setSel('routine-category',r.category);
-  setVal('routine-name',r.name); setVal('routine-sets',r.sets); setVal('routine-reps',r.reps); setVal('routine-memo',r.memo);
-  document.getElementById('routine-del-btn').style.display='inline-flex';
-  openModal('modal-routine');
-};
-window.saveRoutine = async () => {
-  const id=getVal('routine-edit-id');
-  const data={sport:getVal('routine-sport'),category:getVal('routine-category'),name:getVal('routine-name'),sets:getVal('routine-sets'),reps:getVal('routine-reps'),memo:getVal('routine-memo')};
-  try { id ? await updateItem('routines',id,data) : await addItem('routines',data); closeModal('modal-routine'); showToast('저장 완료 ✓'); }
-  catch(e) { showToast('오류: '+e.message); }
-};
-window.deleteRoutine = async () => {
-  const id=getVal('routine-edit-id'); if(!id) return;
-  if(!confirm('삭제할까요?')) return;
-  await deleteItem('routines',id); closeModal('modal-routine'); showToast('삭제 완료');
-};
-
-// ── 캘린더 ────────────────────────────────────────────────
-function initCalendar() {
-  const n=new Date(); calYear=n.getFullYear(); calMonth=n.getMonth();
-}
-function renderCalendar() {
-  if(!calYear) return;
-  document.getElementById('cal-label').textContent=`${calYear}년 ${calMonth+1}월`;
-  const first=new Date(calYear,calMonth,1);
-  const last=new Date(calYear,calMonth+1,0);
-  const today=new Date().toISOString().slice(0,10);
-  const days=['일','월','화','수','목','금','토'];
-  let html=days.map(d=>`<div class="cal-day-header">${d}</div>`).join('');
-  for(let i=0;i<first.getDay();i++) html+=`<div class="cal-day other-month"></div>`;
-  for(let d=1;d<=last.getDate();d++){
-    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const hasEv=events.some(e=>String(e.date)===ds);
-    const isT=ds===today;
-    html+=`<div class="cal-day${isT?' today':''}${hasEv?' has-event':''}" onclick="onDayClick('${ds}')">
-      <div class="day-num">${d}</div></div>`;
-  }
-  document.getElementById('calendar-grid').innerHTML=html;
-  renderEventList();
-}
-function renderEventList(){
-  const data=filterSport(events).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-  const today=new Date().toISOString().slice(0,10);
-  document.getElementById('event-list').innerHTML = data.length ? data.map(e=>`
-    <div class="card${e.date<today?' faded':''}" onclick="openCalEdit('${e.id}')">
-      <div class="card-header"><span class="card-title">${e.title||''}</span>
-      <span class="card-badge badge-blue">${e.type||''}</span></div>
-      <div class="card-sub">${e.date||''} · ${e.sport||''}</div>
-      ${e.memo?`<div class="card-sub" style="margin-top:4px">${e.memo}</div>`:''}
-    </div>`).join('') : '<div class="empty-msg">등록된 일정 없음</div>';
-}
-window.changeMonth = dir => { calMonth+=dir; if(calMonth<0){calMonth=11;calYear--;}else if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); };
-window.onDayClick = date => { clearModal('modal-calendar'); setVal('cal-date',date); document.getElementById('cal-del-btn').style.display='none'; openModal('modal-calendar'); };
-window.openCalEdit = id => {
-  const e=events.find(x=>x.id===id); if(!e) return;
-  setVal('cal-edit-id',e.id); setVal('cal-date',e.date); setSel('cal-sport',e.sport); setSel('cal-type',e.type);
-  setVal('cal-title',e.title); setVal('cal-memo',e.memo);
-  document.getElementById('cal-del-btn').style.display='inline-flex';
-  openModal('modal-calendar');
-};
-window.saveCalEvent = async () => {
-  const id=getVal('cal-edit-id');
-  const data={date:getVal('cal-date'),sport:getVal('cal-sport'),type:getVal('cal-type'),title:getVal('cal-title'),memo:getVal('cal-memo')};
-  try { id ? await updateItem('events',id,data) : await addItem('events',data); closeModal('modal-calendar'); showToast('저장 완료 ✓'); }
-  catch(e){ showToast('오류: '+e.message); }
-};
-window.deleteCalEvent = async () => {
-  const id=getVal('cal-edit-id'); if(!id) return;
-  if(!confirm('삭제할까요?')) return;
-  await deleteItem('events',id); closeModal('modal-calendar'); showToast('삭제 완료');
-};
-
-// ── 통계 ──────────────────────────────────────────────────
-function renderStats(){
-  const fl=filterSport(logs);
-  const now=new Date();
-  const ym=now.toISOString().slice(0,7);
-  const mL=fl.filter(l=>String(l.date||'').slice(0,7)===ym);
-  const total=fl.length;
-  const totalMin=fl.reduce((s,l)=>s+(Number(l.duration)||0),0);
-  document.getElementById('stat-cards2').innerHTML=`
-    <div class="stat-card"><div class="stat-label">총 훈련</div><div class="stat-val">${total}</div><div class="stat-unit">회</div></div>
-    <div class="stat-card"><div class="stat-label">총 시간</div><div class="stat-val">${Math.round(totalMin/60*10)/10}</div><div class="stat-unit">시간</div></div>
-    <div class="stat-card"><div class="stat-label">이번 달</div><div class="stat-val">${mL.length}</div><div class="stat-unit">회</div></div>
-    <div class="stat-card"><div class="stat-label">이번 달</div><div class="stat-val">${mL.reduce((s,l)=>s+(Number(l.duration)||0),0)}</div><div class="stat-unit">분</div></div>`;
-  // 월별 막대
-  const md={};
-  for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);md[d.toISOString().slice(0,7)]={count:0,label:(d.getMonth()+1)+'월'};}
-  fl.forEach(l=>{const k=String(l.date||'').slice(0,7);if(md[k])md[k].count++;});
-  const maxC=Math.max(...Object.values(md).map(x=>x.count),1);
-  document.getElementById('bar-chart').innerHTML=`<div class="bar-chart-inner">${Object.values(md).map(v=>`
-    <div class="bar-item">
-      <span class="bar-val">${v.count}</span>
-      <div class="bar-fill" style="height:${Math.round(v.count/maxC*100)}px"></div>
-      <span class="bar-label">${v.label}</span>
-    </div>`).join('')}</div>`;
-  // 종목별
-  const sc={};
-  fl.forEach(l=>{const s=l.sport||'기타';sc[s]=(sc[s]||0)+1;});
-  const colors=['#1D9E75','#3b82f6','#f59e0b','#ef4444','#8b5cf6','#ec4899','#0ea5e9','#14b8a6','#6b7280'];
-  document.getElementById('sport-chart').innerHTML=Object.entries(sc).sort((a,b)=>b[1]-a[1]).map(([s,c],i)=>`
-    <div class="donut-item">
-      <div class="donut-dot" style="background:${colors[i%colors.length]}"></div>
-      <span class="donut-label">${s}</span><span class="donut-cnt">${c}회</span>
-    </div>`).join('');
-}
-
-// ── 목표 ──────────────────────────────────────────────────
-function renderGoals(){
-  const data=filterSport(goals);
-  document.getElementById('goal-list').innerHTML=data.length ? data.map(g=>{
-    const pct=g.target?Math.min(100,Math.round(Number(g.current)/Number(g.target)*100)):0;
-    return `<div class="card goal-card" onclick="openGoalEdit('${g.id}')">
-      <div class="card-header"><span class="card-title">${g.title||''}</span>
-      <span class="card-badge badge-green">${g.sport||''}</span></div>
-      <div class="card-sub">${g.current||0} / ${g.target||0} ${g.unit||''} · 마감: ${g.deadline||'-'}</div>
-      <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
-      <div class="progress-text">${pct}%</div>
-    </div>`;
-  }).join('') : '<div class="empty-msg">설정된 목표 없음</div>';
-}
-window.openGoalModal = () => { clearModal('modal-goal'); document.getElementById('goal-del-btn').style.display='none'; openModal('modal-goal'); };
-window.openGoalEdit = id => {
-  const g=goals.find(x=>x.id===id); if(!g) return;
-  setVal('goal-edit-id',g.id); setSel('goal-sport',g.sport); setVal('goal-title',g.title);
-  setVal('goal-target',g.target); setVal('goal-current',g.current); setVal('goal-unit',g.unit);
-  setVal('goal-deadline',g.deadline); setVal('goal-memo',g.memo);
-  document.getElementById('goal-del-btn').style.display='inline-flex';
-  openModal('modal-goal');
-};
-window.saveGoal = async () => {
-  const id=getVal('goal-edit-id');
-  const data={sport:getVal('goal-sport'),title:getVal('goal-title'),target:getVal('goal-target'),current:getVal('goal-current'),unit:getVal('goal-unit'),deadline:getVal('goal-deadline'),memo:getVal('goal-memo'),status:'진행중'};
-  try { id ? await updateItem('goals',id,data) : await addItem('goals',data); closeModal('modal-goal'); showToast('저장 완료 ✓'); }
-  catch(e){ showToast('오류: '+e.message); }
-};
-window.deleteGoal = async () => {
-  const id=getVal('goal-edit-id'); if(!id) return;
-  if(!confirm('삭제할까요?')) return;
-  await deleteItem('goals',id); closeModal('modal-goal'); showToast('삭제 완료');
-};
-
-// ── 영상 ──────────────────────────────────────────────────
-function renderVideos(){
-  let data=filterSport(videos);
-  const fs=document.getElementById('video-filter-sport')?.value;
-  if(fs) data=data.filter(v=>v.sport===fs);
-  document.getElementById('video-list').innerHTML=data.length ? data.map(v=>`
-    <div class="video-card" onclick="window.open('${v.url}','_blank')">
-      ${v.thumbnail?`<img class="video-thumb" src="${v.thumbnail}" alt="${v.title||''}">`:
-        `<div class="video-thumb no-thumb"><i class="ti ti-brand-youtube"></i></div>`}
-      <div class="video-info">
-        <div class="video-title">${v.title||v.url||''}</div>
-        <div class="video-sub">${v.sport||''} · ${v.category||''}</div>
-      </div>
-    </div>`).join('') : '<div class="empty-msg" style="grid-column:1/-1">등록된 영상 없음</div>';
-}
-window.openVideoModal = () => { clearModal('modal-video'); openModal('modal-video'); };
-window.saveVideo = async () => {
-  const url=getVal('video-url'); if(!url){showToast('URL을 입력해 주세요');return;}
-  const m=url.match(/(?:v=|youtu\.be\/)([^&?/]+)/);
-  const data={url,title:getVal('video-title'),sport:getVal('video-sport'),category:getVal('video-category'),memo:getVal('video-memo'),thumbnail:m?`https://img.youtube.com/vi/${m[1]}/mqdefault.jpg`:''};
-  try { await addItem('videos',data); closeModal('modal-video'); showToast('저장 완료 ✓'); }
-  catch(e){ showToast('오류: '+e.message); }
-};
-
-// ── 장비 ──────────────────────────────────────────────────
-function renderEquipments(){
-  const data=filterSport(equipments);
-  const grouped={};
-  data.forEach(e=>{const c=e.category||'기타';(grouped[c]=grouped[c]||[]).push(e);});
-  document.getElementById('equipment-list').innerHTML=Object.keys(grouped).length ? Object.entries(grouped).map(([cat,items])=>`
-    <div style="margin-bottom:18px">
-      <div class="section-title">${cat}</div>
-      ${items.map(e=>`<div class="card" onclick="openEqEdit('${e.id}')">
-        <div class="card-header"><span class="card-title">${e.brand||''} ${e.model||''}</span>
-        <span class="card-badge badge-purple">${e.sport||''}</span></div>
-        ${e.detail?`<div class="card-sub">${e.detail}</div>`:''}
-        ${e.purchaseDate?`<div class="card-sub">구매: ${e.purchaseDate}</div>`:''}
-        ${e.memo?`<div class="card-sub">${e.memo}</div>`:''}
-      </div>`).join('')}
-    </div>`).join('') : '<div class="empty-msg">등록된 장비 없음</div>';
-}
-window.openEqModal = () => { clearModal('modal-equipment'); document.getElementById('eq-del-btn').style.display='none'; openModal('modal-equipment'); };
-window.openEqEdit = id => {
-  const e=equipments.find(x=>x.id===id); if(!e) return;
-  setVal('eq-edit-id',e.id); setSel('eq-sport',e.sport); setSel('eq-category',e.category);
-  setVal('eq-brand',e.brand); setVal('eq-model',e.model); setVal('eq-detail',e.detail);
-  setVal('eq-purchase',e.purchaseDate); setVal('eq-memo',e.memo);
-  document.getElementById('eq-del-btn').style.display='inline-flex';
-  openModal('modal-equipment');
-};
-window.saveEquipment = async () => {
-  const id=getVal('eq-edit-id');
-  const data={sport:getVal('eq-sport'),category:getVal('eq-category'),brand:getVal('eq-brand'),model:getVal('eq-model'),detail:getVal('eq-detail'),purchaseDate:getVal('eq-purchase'),memo:getVal('eq-memo')};
-  try { id ? await updateItem('equipments',id,data) : await addItem('equipments',data); closeModal('modal-equipment'); showToast('저장 완료 ✓'); }
-  catch(e){ showToast('오류: '+e.message); }
-};
-window.deleteEquipment = async () => {
-  const id=getVal('eq-edit-id'); if(!id) return;
-  if(!confirm('삭제할까요?')) return;
-  await deleteItem('equipments',id); closeModal('modal-equipment'); showToast('삭제 완료');
-};
-
-// ── 메모 ──────────────────────────────────────────────────
-function renderMemos(){
-  const data=[...memos].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
-  document.getElementById('memo-list').innerHTML=data.length ? data.map(m=>`
-    <div class="card" onclick="openMemoEdit('${m.id}')">
-      <div class="card-header"><span class="card-title">${m.title||''}</span>
-      <span class="card-badge badge-blue">${m.category||''}</span></div>
-      <div class="card-sub">${(m.content||'').slice(0,60)}${(m.content||'').length>60?'…':''}</div>
-    </div>`).join('') : '<div class="empty-msg">작성된 메모 없음</div>';
-}
-window.openMemoModal = () => { clearModal('modal-memo'); document.getElementById('memo-del-btn').style.display='none'; openModal('modal-memo'); };
-window.openMemoEdit = id => {
-  const m=memos.find(x=>x.id===id); if(!m) return;
-  setVal('memo-edit-id',m.id); setSel('memo-category',m.category); setVal('memo-title',m.title); setVal('memo-content',m.content);
-  document.getElementById('memo-del-btn').style.display='inline-flex';
-  openModal('modal-memo');
-};
-window.saveMemo = async () => {
-  const id=getVal('memo-edit-id');
-  const data={category:getVal('memo-category'),title:getVal('memo-title'),content:getVal('memo-content'),updatedAt:new Date().toISOString().slice(0,10)};
-  try { id ? await updateItem('memos',id,data) : await addItem('memos',data); closeModal('modal-memo'); showToast('저장 완료 ✓'); }
-  catch(e){ showToast('오류: '+e.message); }
-};
-window.deleteMemo = async () => {
-  const id=getVal('memo-edit-id'); if(!id) return;
-  if(!confirm('삭제할까요?')) return;
-  await deleteItem('memos',id); closeModal('modal-memo'); showToast('삭제 완료');
-};
-
-// ── 별점 ──────────────────────────────────────────────────
-window.setStar = n => {
-  starVal=n;
-  document.getElementById('log-rating').value=n;
-  document.querySelectorAll('.star').forEach((s,i)=>s.classList.toggle('on',i<n));
-};
-function setStar(n) { window.setStar(n); }
-
-// ── 모달 ──────────────────────────────────────────────────
-window.openModal  = id => document.getElementById(id).classList.add('open');
-window.closeModal = id => document.getElementById(id).classList.remove('open');
-window.closeModalOutside = (e,id) => { if(e.target.id===id) window.closeModal(id); };
-
-function clearModal(modalId){
-  document.querySelectorAll(`#${modalId} input:not([type=hidden]), #${modalId} textarea`).forEach(el=>el.value='');
-  const h=document.querySelector(`#${modalId} input[type=hidden]`); if(h) h.value='';
-}
-
-// ── 유틸 ──────────────────────────────────────────────────
-const getVal = id => (document.getElementById(id)?.value||'').trim();
-const setVal = (id,v) => { const el=document.getElementById(id); if(el) el.value=v||''; };
-const setSel = (id,v) => { const el=document.getElementById(id); if(!el||!v) return; [...el.options].forEach(o=>o.selected=o.value===v||o.text===v); };
-const setText= (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-
-function setTodayInputs(){
-  const today=new Date().toISOString().slice(0,10);
-  ['log-date','cal-date'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=today; });
-}
-
-let toastTimer;
-window.showToast = msg => {
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.classList.add('show');
-  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
-};
-</script>
-
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:#0a0a0a;color:#f0f0f0;font-family:'Noto Sans KR',sans-serif;font-size:14px;overscroll-behavior:none}
-.sr-only{position:absolute;left:-9999px}
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#1D9E75;--green-dark:#0F6E56;--green-bg:#0a2a1e;
+  --bg:#0a0a0a;--bg2:#111;--bg3:#1a1a1a;--bg4:#222;
+  --border:#2a2a2a;--text:#f0f0f0;--text2:#9ca3af;--text3:#4b5563;
+  --radius:12px;
+}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
 
-/* ── 로그인 화면 ── */
-#login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:#0a0a0a;gap:0;padding:40px 24px}
-.login-eyebrow{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.3em;color:#1D9E75;margin-bottom:16px;text-transform:uppercase}
-.login-title{font-family:'Bebas Neue',sans-serif;font-size:72px;line-height:.9;text-align:center;letter-spacing:.05em;color:#f0f0f0;margin-bottom:8px}
-.login-title span{color:#1D9E75;display:block}
-.login-divider{width:60px;height:3px;background:#1D9E75;margin:24px auto}
-.login-sub{font-size:13px;color:#6b7280;text-align:center;margin-bottom:40px;line-height:1.7}
-.login-btn{display:flex;align-items:center;gap:12px;background:#fff;color:#1a1a1a;border:none;border-radius:12px;padding:14px 28px;font-size:15px;font-weight:700;cursor:pointer;transition:transform .15s,box-shadow .15s;font-family:'Noto Sans KR',sans-serif}
-.login-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(29,158,117,.3)}
+/* 로그인 */
+#login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px 24px;background:var(--bg)}
+.login-eyebrow{font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:.3em;color:var(--green);margin-bottom:16px}
+.login-title{font-family:'Bebas Neue',sans-serif;font-size:72px;line-height:.9;text-align:center;letter-spacing:.05em;margin-bottom:8px}
+.login-title span{color:var(--green);display:block}
+.login-divider{width:60px;height:3px;background:var(--green);margin:24px auto}
+.login-sub{font-size:13px;color:var(--text3);text-align:center;margin-bottom:40px;line-height:1.8}
+.login-btn{display:flex;align-items:center;gap:12px;background:#fff;color:#1a1a1a;border:none;border-radius:12px;padding:14px 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif}
 .login-btn img{width:22px;height:22px}
-.login-copy{margin-top:40px;font-size:11px;color:#374151;letter-spacing:.05em}
+.login-copy{margin-top:40px;font-size:11px;color:var(--text3)}
 
-/* ── 앱 레이아웃 ── */
-#app-screen{display:none;flex-direction:column;max-width:480px;margin:0 auto;min-height:100vh;background:#111;position:relative}
+/* 앱 */
+#app{display:none;max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg2);flex-direction:column}
 
-/* ── 상단 헤더 ── */
-.top-header{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#111;border-bottom:1px solid #1e1e1e;z-index:200;padding:10px 16px}
-.top-header-inner{display:flex;align-items:center;justify-content:space-between}
-.brand-title{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:.12em;color:#f0f0f0;line-height:1}
-.brand-title span{color:#1D9E75}
-.brand-sub{font-size:10px;color:#4b5563;letter-spacing:.15em;text-transform:uppercase;margin-top:1px}
-.header-right{display:flex;align-items:center;gap:10px}
-.user-chip{display:flex;align-items:center;gap:6px;background:#1a1a1a;border-radius:20px;padding:4px 10px 4px 4px;cursor:pointer;border:1px solid #2a2a2a}
+/* 헤더 */
+.header{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--bg2);border-bottom:1px solid var(--border);z-index:200;padding:10px 16px}
+.header-inner{display:flex;align-items:center;justify-content:space-between}
+.brand{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:.12em}
+.brand span{color:var(--green)}
+.brand-sub{font-size:10px;color:var(--text3);letter-spacing:.15em;text-transform:uppercase}
+.header-right{display:flex;align-items:center;gap:8px}
+#global-sport{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:5px 10px;font-size:11px;color:var(--text2);cursor:pointer;outline:none;font-family:'Noto Sans KR',sans-serif}
+.user-chip{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:4px 10px 4px 4px;cursor:pointer}
 .user-chip img{width:24px;height:24px;border-radius:50%;object-fit:cover}
-#user-name{font-size:12px;color:#9ca3af}
-.icon-btn{background:none;border:1px solid #2a2a2a;border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6b7280;font-size:16px;transition:color .2s,border-color .2s}
-.icon-btn:hover{color:#1D9E75;border-color:#1D9E75}
-#global-sport{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:20px;padding:5px 12px;font-size:11px;color:#9ca3af;cursor:pointer;outline:none;font-family:'Noto Sans KR',sans-serif}
-#global-sport:focus{border-color:#1D9E75}
+#user-name{font-size:11px;color:var(--text2)}
 
-/* ── 섹션 ── */
-.section{display:none;padding:90px 16px 80px;flex:1;min-height:100vh}
+/* 네비 */
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--bg2);border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(9,1fr);z-index:200}
+.nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 0;background:none;border:none;cursor:pointer;color:var(--text3);font-size:9px;gap:2px;font-family:'Noto Sans KR',sans-serif;transition:color .2s}
+.nav button.active,.nav button:hover{color:var(--green)}
+.nav button svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* 섹션 */
+.section{display:none;padding:88px 16px 76px;min-height:100vh}
 .section.active{display:block}
 
-/* ── 하단 네비 ── */
-.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#111;border-top:1px solid #1e1e1e;display:grid;grid-template-columns:repeat(9,1fr);z-index:200;padding-bottom:env(safe-area-inset-bottom)}
-.nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 0;background:none;border:none;cursor:pointer;color:#374151;font-size:9px;gap:2px;transition:color .2s;font-family:'Noto Sans KR',sans-serif}
-.nav button i{font-size:17px}
-.nav button.active{color:#1D9E75}
-.nav button:hover{color:#1D9E75}
+/* 배너 */
+.banner{display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px}
+.banner-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.1em;color:var(--text)}
+.btn-add{background:var(--green);border:none;border-radius:8px;color:#fff;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif}
+.btn-add:hover{background:var(--green-dark)}
 
-/* ── 페이지 배너 ── */
-.page-banner{display:flex;align-items:center;justify-content:space-between;background:#1a1a1a;border:1px solid #2a2a2a;border-left:3px solid #1D9E75;border-radius:12px;padding:14px 16px;margin-bottom:16px}
-.page-banner-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.1em;color:#f0f0f0;display:flex;align-items:center;gap:8px}
-.page-banner-title i{font-size:20px;color:#1D9E75}
-.banner-btn{background:#1D9E75;border:none;border-radius:8px;color:#fff;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:700;font-family:'Noto Sans KR',sans-serif;transition:background .2s}
-.banner-btn:hover{background:#0F6E56}
+/* 통계카드 */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}
+.stat-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center}
+.stat-label{font-size:10px;color:var(--text3);margin-bottom:4px;letter-spacing:.05em}
+.stat-val{font-family:'Bebas Neue',sans-serif;font-size:32px;color:var(--green);line-height:1}
+.stat-unit{font-size:11px;color:var(--text3)}
 
-/* ── 통계 카드 ── */
-.stat-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:20px}
-.stat-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:14px;text-align:center}
-.stat-label{font-size:10px;color:#4b5563;margin-bottom:6px;letter-spacing:.05em}
-.stat-val{font-family:'Bebas Neue',sans-serif;font-size:32px;color:#1D9E75;line-height:1}
-.stat-unit{font-size:11px;color:#374151}
-
-/* ── 섹션 타이틀 ── */
-.section-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.section-title{font-size:11px;font-weight:700;color:#4b5563;letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;display:block}
-.link-btn{background:none;border:none;color:#1D9E75;font-size:12px;cursor:pointer;font-weight:700}
-
-/* ── 카드 ── */
+/* 카드 */
 .card-list{display:flex;flex-direction:column;gap:8px}
-.card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:14px 16px;cursor:pointer;transition:border-color .2s,background .2s}
-.card:hover{border-color:#1D9E75;background:#1f1f1f}
-.card.faded{opacity:.5}
-.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
-.card-title{font-size:14px;font-weight:700;color:#f0f0f0}
-.card-sub{font-size:12px;color:#4b5563;margin-top:2px}
-.card-badge{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700;white-space:nowrap}
-.badge-green{background:#0F4030;color:#1D9E75}
-.badge-blue{background:#0c2340;color:#60a5fa}
-.badge-orange{background:#3a1f00;color:#f59e0b}
-.badge-red{background:#3a0a0a;color:#f87171}
-.badge-purple{background:#1e1040;color:#a78bfa}
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px;cursor:pointer;transition:border-color .2s}
+.card:hover{border-color:var(--green)}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.card-title{font-size:14px;font-weight:700;color:var(--text)}
+.card-sub{font-size:12px;color:var(--text3);margin-top:2px}
 .card-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
-.meta-chip{font-size:11px;background:#222;border-radius:8px;padding:2px 8px;color:#6b7280}
-.empty-msg{text-align:center;color:#374151;padding:32px 0;font-size:13px}
+.chip{font-size:11px;background:var(--bg4);border-radius:8px;padding:2px 8px;color:var(--text2)}
+.badge{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:700}
+.badge-green{background:#0a2a1e;color:var(--green)}
+.badge-blue{background:#0c2340;color:#60a5fa}
+.badge-orange{background:#2a1500;color:#f59e0b}
+.badge-red{background:#2a0a0a;color:#f87171}
+.badge-purple{background:#1a0a30;color:#a78bfa}
+.empty{text-align:center;color:var(--text3);padding:32px 0;font-size:13px}
 
-/* ── 필터 ── */
+/* 필터 */
 .filter-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
-.filter-row select,.filter-row input{flex:1;min-width:100px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:20px;padding:6px 12px;font-size:12px;color:#9ca3af;outline:none;font-family:'Noto Sans KR',sans-serif}
-.filter-row select:focus,.filter-row input:focus{border-color:#1D9E75}
+.filter-row select,.filter-row input{flex:1;min-width:100px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:6px 12px;font-size:12px;color:var(--text2);outline:none;font-family:'Noto Sans KR',sans-serif}
+.filter-row select:focus,.filter-row input:focus{border-color:var(--green)}
 
-/* ── 캘린더 ── */
-.calendar-nav{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px}
-.calendar-nav button{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:16px;transition:border-color .2s}
-.calendar-nav button:hover{border-color:#1D9E75;color:#1D9E75}
-#cal-label{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.1em;color:#f0f0f0;min-width:120px;text-align:center}
-.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#1e1e1e;border-radius:12px;overflow:hidden;border:1px solid #1e1e1e}
-.cal-day-header{background:#141414;padding:6px 0;text-align:center;font-size:10px;font-weight:700;color:#374151;letter-spacing:.05em}
-.cal-day{background:#1a1a1a;min-height:36px;padding:4px;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:background .15s;font-size:12px;color:#6b7280;position:relative}
-.cal-day:hover{background:#222}
-.cal-day.today .day-num{background:#1D9E75;color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700}
-.cal-day.other-month .day-num{color:#1e1e1e}
-.cal-day.has-event::after{content:'';width:4px;height:4px;background:#1D9E75;border-radius:50%;position:absolute;bottom:4px}
-.day-num{width:22px;height:22px;display:flex;align-items:center;justify-content:center}
+/* 섹션 타이틀 */
+.sec-title{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;margin-top:16px}
 
-/* ── 막대 차트 ── */
-.bar-chart-wrap{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:16px;overflow-x:auto}
-.bar-chart-inner{display:flex;align-items:flex-end;gap:8px;height:120px;min-width:240px}
-.bar-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:32px}
-.bar-fill{width:100%;background:#1D9E75;border-radius:4px 4px 0 0;min-height:4px;transition:height .4s}
-.bar-label{font-size:10px;color:#374151}
-.bar-val{font-family:'Bebas Neue',sans-serif;font-size:15px;color:#1D9E75}
+/* 캘린더 */
+.cal-nav{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px}
+.cal-nav button{background:var(--bg3);border:1px solid var(--border);border-radius:8px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:18px;transition:border-color .2s}
+.cal-nav button:hover{border-color:var(--green);color:var(--green)}
+#cal-label{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.1em;min-width:120px;text-align:center}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border-radius:var(--radius);overflow:hidden;border:1px solid var(--border)}
+.cal-head{background:var(--bg3);padding:5px 0;text-align:center;font-size:10px;font-weight:700;color:var(--text3)}
+.cal-day{background:var(--bg3);min-height:36px;padding:4px;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:background .15s;font-size:12px;color:var(--text2);position:relative}
+.cal-day:hover{background:var(--bg4)}
+.cal-day.today .dn{background:var(--green);color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:700}
+.cal-day.other .dn{color:var(--border)}
+.cal-day.has-event::after{content:'';width:4px;height:4px;background:var(--green);border-radius:50%;position:absolute;bottom:4px}
+.dn{width:22px;height:22px;display:flex;align-items:center;justify-content:center}
 
-/* ── 종목별 ── */
-.donut-wrap{display:flex;flex-wrap:wrap;gap:8px}
-.donut-item{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:8px}
-.donut-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.donut-label{font-size:12px;color:#9ca3af}
-.donut-cnt{font-size:13px;color:#1D9E75;font-weight:700;margin-left:auto}
+/* 막대차트 */
+.bar-wrap{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-x:auto}
+.bar-inner{display:flex;align-items:flex-end;gap:8px;height:100px;min-width:200px}
+.bar-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:28px}
+.bar-fill{width:100%;background:var(--green);border-radius:4px 4px 0 0;min-height:4px;transition:height .4s}
+.bar-lbl{font-size:10px;color:var(--text3)}
+.bar-val{font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--green)}
 
-/* ── 목표 ── */
-.goal-card{cursor:pointer}
-.progress-bar-bg{background:#1e1e1e;border-radius:10px;height:6px;margin:8px 0}
-.progress-bar-fill{background:#1D9E75;border-radius:10px;height:6px;transition:width .5s}
-.progress-text{font-size:11px;color:#4b5563;text-align:right}
+/* 종목분포 */
+.sport-wrap{display:flex;flex-wrap:wrap;gap:8px}
+.sport-item{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:8px 14px;display:flex;align-items:center;gap:8px}
+.sport-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.sport-lbl{font-size:12px;color:var(--text2)}
+.sport-cnt{font-size:13px;color:var(--green);font-weight:700;margin-left:4px}
 
-/* ── 영상 ── */
+/* 목표 */
+.prog-bg{background:var(--bg4);border-radius:10px;height:6px;margin:8px 0}
+.prog-fill{background:var(--green);border-radius:10px;height:6px;transition:width .5s}
+.prog-txt{font-size:11px;color:var(--text3);text-align:right}
+
+/* 영상 */
 .video-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-.video-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;cursor:pointer;transition:border-color .2s}
-.video-card:hover{border-color:#1D9E75}
-.video-thumb{width:100%;aspect-ratio:16/9;object-fit:cover;background:#141414}
-.no-thumb{width:100%;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:#141414;color:#374151;font-size:24px}
-.video-info{padding:8px 10px}
-.video-title{font-size:12px;font-weight:700;color:#f0f0f0;line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.video-sub{font-size:11px;color:#4b5563;margin-top:3px}
+.video-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:border-color .2s}
+.video-card:hover{border-color:var(--green)}
+.video-thumb{width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--bg4)}
+.no-thumb{width:100%;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:var(--bg4);color:var(--text3);font-size:24px}
+.video-info{padding:8px}
+.video-title{font-size:12px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.video-sub{font-size:11px;color:var(--text3);margin-top:2px}
 
-/* ── 별점 ── */
+/* 별점 */
 .star-row{display:flex;gap:4px;margin:4px 0}
-.star{font-size:22px;color:#2a2a2a;cursor:pointer;transition:color .15s}
+.star{font-size:22px;color:var(--bg4);cursor:pointer;transition:color .15s}
 .star.on{color:#f59e0b}
 
-/* ── 모달 ── */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:300;align-items:flex-end;justify-content:center}
+/* 모달 */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;align-items:flex-end;justify-content:center}
 .modal-overlay.open{display:flex}
-.modal{background:#141414;border-radius:20px 20px 0 0;border-top:1px solid #2a2a2a;width:100%;max-width:480px;max-height:88vh;display:flex;flex-direction:column}
-.modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid #1e1e1e;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.1em;color:#f0f0f0}
-.modal-close{background:none;border:none;cursor:pointer;color:#374151;font-size:20px;display:flex;align-items:center;transition:color .2s}
-.modal-close:hover{color:#f0f0f0}
+.modal{background:#141414;border-radius:20px 20px 0 0;border-top:1px solid var(--border);width:100%;max-width:480px;max-height:90vh;display:flex;flex-direction:column}
+.modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 12px;border-bottom:1px solid var(--border);font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.1em}
+.modal-close{background:none;border:none;cursor:pointer;color:var(--text3);font-size:22px;line-height:1;transition:color .2s}
+.modal-close:hover{color:var(--text)}
 .modal-body{flex:1;overflow-y:auto;padding:16px 20px}
-.modal-footer{display:flex;gap:8px;justify-content:flex-end;padding:12px 20px;border-top:1px solid #1e1e1e}
+.modal-ft{display:flex;gap:8px;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--border)}
 
-/* ── 폼 ── */
+/* 폼 */
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.form-group{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
-.form-group label{font-size:11px;font-weight:700;color:#4b5563;letter-spacing:.08em;text-transform:uppercase}
-.form-group input,.form-group select,.form-group textarea{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:10px;padding:9px 12px;font-size:13px;font-family:'Noto Sans KR',sans-serif;outline:none;transition:border-color .2s;color:#f0f0f0}
-.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#1D9E75}
-.form-group select option{background:#1a1a1a}
-.form-group textarea{resize:vertical;min-height:60px}
+.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.fg label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase}
+.fg input,.fg select,.fg textarea{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:13px;font-family:'Noto Sans KR',sans-serif;outline:none;color:var(--text);transition:border-color .2s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--green)}
+.fg select option{background:var(--bg3)}
+.fg textarea{resize:vertical;min-height:56px}
 
-/* ── 버튼 ── */
-.save-btn{background:#1D9E75;color:#fff;border:none;border-radius:10px;padding:9px 24px;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s;font-family:'Noto Sans KR',sans-serif}
-.save-btn:hover{background:#0F6E56}
-.del-btn{background:none;border:1px solid #3a0a0a;color:#f87171;border-radius:10px;padding:9px 16px;font-size:13px;cursor:pointer;transition:background .2s;font-family:'Noto Sans KR',sans-serif;display:none}
-.del-btn:hover{background:#1a0000}
+/* 버튼 */
+.btn-save{background:var(--green);color:#fff;border:none;border-radius:10px;padding:9px 24px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans KR',sans-serif}
+.btn-save:hover{background:var(--green-dark)}
+.btn-del{background:none;border:1px solid #3a0a0a;color:#f87171;border-radius:10px;padding:9px 16px;font-size:13px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;display:none}
+.btn-del:hover{background:#1a0000}
 
-/* ── 설정 ── */
-.cfg-note{font-size:11px;color:#4b5563;margin-top:-6px;margin-bottom:8px;line-height:1.5}
-
-/* ── 토스트 ── */
-.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(20px);background:#1D9E75;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .3s,transform .3s;z-index:400;pointer-events:none;white-space:nowrap;font-weight:700}
+/* 토스트 */
+.toast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--green);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;opacity:0;transition:opacity .3s,transform .3s;z-index:400;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-/* ── 카피라이트 ── */
-.copyright{text-align:center;font-size:10px;color:#1e1e1e;padding:20px 0 4px;letter-spacing:.2em;text-transform:uppercase;font-family:'Bebas Neue',sans-serif}
+.copyright{text-align:center;font-size:10px;color:var(--border);padding:20px 0 4px;font-family:'Bebas Neue',sans-serif;letter-spacing:.2em}
+.faded{opacity:.5}
+.link-btn{background:none;border:none;color:var(--green);font-size:12px;cursor:pointer;font-weight:700}
+.row-between{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 </style>
 </head>
 <body>
 
-<!-- ── 로그인 화면 ── -->
+<!-- 로그인 -->
 <div id="login-screen">
-  <div class="login-eyebrow">Track · Record · Grow</div>
+  <div class="login-eyebrow">TRACK · RECORD · GROW</div>
   <div class="login-title">SPORT<span>LOG</span></div>
   <div class="login-divider"></div>
   <div class="login-sub">운동을 기록하는 가장 강렬한 방법<br>훈련일지 · 루틴 · 통계 · 목표 관리</div>
-  <button class="login-btn" onclick="loginGoogle()">
+  <button class="login-btn" onclick="signInWithGoogle()">
     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
     Google로 시작하기
   </button>
   <div class="login-copy">© 김정환</div>
 </div>
 
-<!-- ── 앱 화면 ── -->
-<div id="app-screen">
-  <h2 class="sr-only">SPORT LOG 운동 관리 앱</h2>
+<!-- 앱 -->
+<div id="app">
 
-  <!-- 상단 헤더 -->
-  <div class="top-header">
-    <div class="top-header-inner">
+  <!-- 헤더 -->
+  <div class="header">
+    <div class="header-inner">
       <div>
-        <div class="brand-title">SPORT <span>LOG</span></div>
+        <div class="brand">SPORT <span>LOG</span></div>
         <div class="brand-sub">오늘도 기록한다</div>
       </div>
       <div class="header-right">
@@ -811,173 +205,155 @@ html,body{height:100%;background:#0a0a0a;color:#f0f0f0;font-family:'Noto Sans KR
           <option>축구</option><option>농구</option><option>테니스</option>
           <option>달리기</option><option>자전거</option><option>기타</option>
         </select>
-        <button class="icon-btn" onclick="openSettings()" title="설정"><i class="ti ti-settings"></i></button>
-        <div class="user-chip" onclick="logoutUser()">
-          <img id="user-avatar" src="" alt="프로필">
+        <div class="user-chip" onclick="signOut()">
+          <img id="user-photo" src="" alt="">
           <span id="user-name"></span>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- 하단 네비 -->
+  <!-- 네비 -->
   <nav class="nav">
-    <button class="active" onclick="showTab('dashboard')"><i class="ti ti-layout-dashboard"></i><span>홈</span></button>
-    <button onclick="showTab('log')"><i class="ti ti-notebook"></i><span>일지</span></button>
-    <button onclick="showTab('routine')"><i class="ti ti-list-check"></i><span>루틴</span></button>
-    <button onclick="showTab('calendar')"><i class="ti ti-calendar"></i><span>일정</span></button>
-    <button onclick="showTab('stats')"><i class="ti ti-chart-bar"></i><span>통계</span></button>
-    <button onclick="showTab('goal')"><i class="ti ti-target"></i><span>목표</span></button>
-    <button onclick="showTab('video')"><i class="ti ti-brand-youtube"></i><span>영상</span></button>
-    <button onclick="showTab('equipment')"><i class="ti ti-backpack"></i><span>장비</span></button>
-    <button onclick="showTab('memo')"><i class="ti ti-notes"></i><span>메모</span></button>
+    <button class="active" onclick="showTab('dashboard')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>홈
+    </button>
+    <button onclick="showTab('log')">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>일지
+    </button>
+    <button onclick="showTab('routine')">
+      <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 5"/><polyline points="3 12 4 13 6 11"/><polyline points="3 18 4 19 6 17"/></svg>루틴
+    </button>
+    <button onclick="showTab('calendar')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>일정
+    </button>
+    <button onclick="showTab('stats')">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>통계
+    </button>
+    <button onclick="showTab('goal')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>목표
+    </button>
+    <button onclick="showTab('video')">
+      <svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>영상
+    </button>
+    <button onclick="showTab('equipment')">
+      <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>장비
+    </button>
+    <button onclick="showTab('memo')">
+      <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>메모
+    </button>
   </nav>
 
   <!-- ① 홈 -->
   <div id="tab-dashboard" class="section active">
-    <div class="stat-cards">
+    <div class="stat-grid">
       <div class="stat-card"><div class="stat-label">이번 달 훈련</div><div class="stat-val" id="s-month">0</div><div class="stat-unit">회</div></div>
       <div class="stat-card"><div class="stat-label">이번 달 시간</div><div class="stat-val" id="s-month-min">0</div><div class="stat-unit">분</div></div>
       <div class="stat-card"><div class="stat-label">올해 총 훈련</div><div class="stat-val" id="s-year">0</div><div class="stat-unit">회</div></div>
       <div class="stat-card"><div class="stat-label">평균 집중도</div><div class="stat-val" id="s-rating">-</div><div class="stat-unit">/ 5</div></div>
     </div>
-    <div class="section-title-row"><span class="section-title">다가오는 일정</span></div>
-    <div id="upcoming-list" class="card-list" style="margin-bottom:20px"></div>
-    <div class="section-title-row">
-      <span class="section-title">최근 훈련</span>
+    <div class="row-between"><span class="sec-title">다가오는 일정</span></div>
+    <div id="upcoming-list" class="card-list" style="margin-bottom:16px"></div>
+    <div class="row-between">
+      <span class="sec-title">최근 훈련</span>
       <button class="link-btn" onclick="showTab('log')">전체 →</button>
     </div>
     <div id="recent-list" class="card-list"></div>
     <div class="copyright">© 김정환</div>
   </div>
 
-  <!-- ② 훈련 일지 -->
+  <!-- ② 훈련일지 -->
   <div id="tab-log" class="section">
-    <div class="page-banner">
-      <div class="page-banner-title"><i class="ti ti-notebook"></i>훈련 일지</div>
-      <button class="banner-btn" onclick="openLogModal()">+ 기록</button>
-    </div>
+    <div class="banner"><div class="banner-title">훈련 일지</div><button class="btn-add" onclick="openLogModal()">+ 기록</button></div>
     <div class="filter-row">
-      <select id="log-filter-type" onchange="renderLogs()">
-        <option value="">전체 유형</option>
-        <option>훈련</option><option>레슨</option><option>대회</option><option>자체게임</option><option>기타</option>
-      </select>
-      <input type="month" id="log-filter-month" onchange="renderLogs()">
+      <select id="log-ft" onchange="renderLogs()"><option value="">전체 유형</option><option>훈련</option><option>레슨</option><option>대회</option><option>자체게임</option><option>기타</option></select>
+      <input type="month" id="log-fm" onchange="renderLogs()">
     </div>
     <div id="log-list" class="card-list"></div>
   </div>
 
   <!-- ③ 루틴 -->
   <div id="tab-routine" class="section">
-    <div class="page-banner">
-      <div class="page-banner-title"><i class="ti ti-list-check"></i>훈련 루틴</div>
-      <button class="banner-btn" onclick="openRoutineModal()">+ 추가</button>
-    </div>
+    <div class="banner"><div class="banner-title">훈련 루틴</div><button class="btn-add" onclick="openRoutineModal()">+ 추가</button></div>
     <div class="filter-row">
-      <select id="routine-filter-sport" onchange="renderRoutines()">
-        <option value="">전체 종목</option>
-        <option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option>
-      </select>
-      <select id="routine-filter-cat" onchange="renderRoutines()">
-        <option value="">전체 카테고리</option>
-        <option>웜업</option><option>기술훈련</option><option>체력훈련</option><option>쿨다운</option><option>기타</option>
-      </select>
+      <select id="rt-fs" onchange="renderRoutines()"><option value="">전체 종목</option><option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option></select>
+      <select id="rt-fc" onchange="renderRoutines()"><option value="">전체 카테고리</option><option>웜업</option><option>기술훈련</option><option>체력훈련</option><option>쿨다운</option><option>기타</option></select>
     </div>
     <div id="routine-list" class="card-list"></div>
   </div>
 
   <!-- ④ 캘린더 -->
   <div id="tab-calendar" class="section">
-    <div class="page-banner">
-      <div class="page-banner-title"><i class="ti ti-calendar"></i>일정 관리</div>
-      <button class="banner-btn" onclick="onDayClick(new Date().toISOString().slice(0,10))">+ 추가</button>
-    </div>
-    <div class="calendar-nav">
-      <button onclick="changeMonth(-1)"><i class="ti ti-chevron-left"></i></button>
+    <div class="banner"><div class="banner-title">일정 관리</div><button class="btn-add" onclick="openCalModal(new Date().toISOString().slice(0,10))">+ 추가</button></div>
+    <div class="cal-nav">
+      <button onclick="changeMonth(-1)">‹</button>
       <span id="cal-label"></span>
-      <button onclick="changeMonth(1)"><i class="ti ti-chevron-right"></i></button>
+      <button onclick="changeMonth(1)">›</button>
     </div>
-    <div class="calendar-grid" id="calendar-grid"></div>
-    <div class="section-title" style="margin-top:16px">일정 목록</div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <div class="sec-title" style="margin-top:14px">일정 목록</div>
     <div id="event-list" class="card-list"></div>
   </div>
 
   <!-- ⑤ 통계 -->
   <div id="tab-stats" class="section">
-    <div class="page-banner"><div class="page-banner-title"><i class="ti ti-chart-bar"></i>훈련 통계</div></div>
-    <div class="stat-cards" id="stat-cards2"></div>
-    <div class="section-title" style="margin-top:20px">월별 훈련 횟수</div>
-    <div class="bar-chart-wrap" id="bar-chart"></div>
-    <div class="section-title" style="margin-top:20px">종목별 분포</div>
-    <div id="sport-chart" class="donut-wrap"></div>
+    <div class="banner"><div class="banner-title">훈련 통계</div></div>
+    <div class="stat-grid" id="stat-grid2"></div>
+    <div class="sec-title">월별 훈련 횟수</div>
+    <div class="bar-wrap" id="bar-chart"></div>
+    <div class="sec-title">종목별 분포</div>
+    <div id="sport-chart" class="sport-wrap"></div>
   </div>
 
   <!-- ⑥ 목표 -->
   <div id="tab-goal" class="section">
-    <div class="page-banner">
-      <div class="page-banner-title"><i class="ti ti-target"></i>목표 관리</div>
-      <button class="banner-btn" onclick="openGoalModal()">+ 목표</button>
-    </div>
+    <div class="banner"><div class="banner-title">목표 관리</div><button class="btn-add" onclick="openGoalModal()">+ 목표</button></div>
     <div id="goal-list" class="card-list"></div>
   </div>
 
   <!-- ⑦ 영상 -->
   <div id="tab-video" class="section">
-    <div class="page-banner">
-      <div class="page-banner-title"><i class="ti ti-brand-youtube"></i>참고 영상</div>
-      <button class="banner-btn" onclick="openVideoModal()">+ 추가</button>
-    </div>
+    <div class="banner"><div class="banner-title">참고 영상</div><button class="btn-add" onclick="openVideoModal()">+ 추가</button></div>
     <div class="filter-row">
-      <select id="video-filter-sport" onchange="renderVideos()">
-        <option value="">전체 종목</option>
-        <option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option>
-      </select>
+      <select id="vd-fs" onchange="renderVideos()"><option value="">전체 종목</option><option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option></select>
     </div>
     <div id="video-list" class="video-grid"></div>
   </div>
 
   <!-- ⑧ 장비 -->
   <div id="tab-equipment" class="section">
-    <div class="page-banner">
-      <div class="page-banner-title"><i class="ti ti-backpack"></i>장비 관리</div>
-      <button class="banner-btn" onclick="openEqModal()">+ 추가</button>
-    </div>
-    <div id="equipment-list" class="card-list"></div>
+    <div class="banner"><div class="banner-title">장비 관리</div><button class="btn-add" onclick="openEqModal()">+ 추가</button></div>
+    <div id="eq-list" class="card-list"></div>
   </div>
 
   <!-- ⑨ 메모 -->
   <div id="tab-memo" class="section">
-    <div class="page-banner">
-      <div class="page-banner-title"><i class="ti ti-notes"></i>메모</div>
-      <button class="banner-btn" onclick="openMemoModal()">+ 메모</button>
-    </div>
+    <div class="banner"><div class="banner-title">메모</div><button class="btn-add" onclick="openMemoModal()">+ 메모</button></div>
     <div id="memo-list" class="card-list"></div>
   </div>
 
-  <!-- ══ 모달들 ══ -->
-
-  <!-- 훈련 일지 모달 -->
-  <div id="modal-log" class="modal-overlay" onclick="closeModalOutside(event,'modal-log')">
+  <!-- 모달: 훈련일지 -->
+  <div id="m-log" class="modal-overlay" onclick="closeOut(event,'m-log')">
     <div class="modal">
-      <div class="modal-header">훈련 기록<button class="modal-close" onclick="closeModal('modal-log')"><i class="ti ti-x"></i></button></div>
+      <div class="modal-hd">훈련 기록<button class="modal-close" onclick="closeModal('m-log')">×</button></div>
       <div class="modal-body">
-        <input type="hidden" id="log-edit-id">
+        <input type="hidden" id="log-id">
         <div class="form-row">
-          <div class="form-group"><label>날짜</label><input type="date" id="log-date"></div>
-          <div class="form-group"><label>종목</label><select id="log-sport" class="sport-select"><option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option></select></div>
+          <div class="fg"><label>날짜</label><input type="date" id="log-date"></div>
+          <div class="fg"><label>종목</label><select id="log-sport"><option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option></select></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>유형</label><select id="log-type"><option>훈련</option><option>레슨</option><option>대회</option><option>자체게임</option><option>기타</option></select></div>
-          <div class="form-group"><label>시간(분)</label><input type="number" id="log-duration" placeholder="90" min="0"></div>
+          <div class="fg"><label>유형</label><select id="log-type"><option>훈련</option><option>레슨</option><option>대회</option><option>자체게임</option><option>기타</option></select></div>
+          <div class="fg"><label>시간(분)</label><input type="number" id="log-dur" placeholder="90" min="0"></div>
         </div>
-        <div class="form-group"><label>장소</label><input type="text" id="log-place" placeholder="예: 수원실내체육관"></div>
-        <div class="form-group"><label>파트너/상대</label><input type="text" id="log-partner" placeholder="예: 김코치, 복식 파트너"></div>
-        <div class="form-group"><label>집중 포인트</label><input type="text" id="log-focus" placeholder="예: 백핸드 드롭, 스텝 훈련"></div>
-        <div class="form-group"><label>잘한 점</label><textarea id="log-good" rows="2" placeholder="오늘 잘된 것"></textarea></div>
-        <div class="form-group"><label>개선할 점</label><textarea id="log-improve" rows="2" placeholder="보완이 필요한 것"></textarea></div>
+        <div class="fg"><label>장소</label><input type="text" id="log-place" placeholder="예: 수원실내체육관"></div>
+        <div class="fg"><label>파트너/상대</label><input type="text" id="log-partner" placeholder="예: 김코치"></div>
+        <div class="fg"><label>집중 포인트</label><input type="text" id="log-focus" placeholder="예: 백핸드 드롭"></div>
+        <div class="fg"><label>잘한 점</label><textarea id="log-good" rows="2"></textarea></div>
+        <div class="fg"><label>개선할 점</label><textarea id="log-improve" rows="2"></textarea></div>
         <div class="form-row">
-          <div class="form-group"><label>컨디션</label><select id="log-condition"><option>최상</option><option>좋음</option><option>보통</option><option>피로</option><option>부상</option></select></div>
-          <div class="form-group"><label>집중도</label>
+          <div class="fg"><label>컨디션</label><select id="log-cond"><option>최상</option><option>좋음</option><option>보통</option><option>피로</option><option>부상</option></select></div>
+          <div class="fg"><label>집중도</label>
             <div class="star-row">
               <span class="star" onclick="setStar(1)">★</span><span class="star" onclick="setStar(2)">★</span>
               <span class="star" onclick="setStar(3)">★</span><span class="star" onclick="setStar(4)">★</span>
@@ -986,168 +362,494 @@ html,body{height:100%;background:#0a0a0a;color:#f0f0f0;font-family:'Noto Sans KR
             <input type="hidden" id="log-rating" value="3">
           </div>
         </div>
-        <div class="form-group"><label>메모</label><textarea id="log-memo" rows="2" placeholder="기타 메모"></textarea></div>
+        <div class="fg"><label>메모</label><textarea id="log-memo" rows="2"></textarea></div>
       </div>
-      <div class="modal-footer">
-        <button class="del-btn" id="log-del-btn" onclick="deleteLog()">삭제</button>
-        <button class="save-btn" onclick="saveLog()">저장</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 루틴 모달 -->
-  <div id="modal-routine" class="modal-overlay" onclick="closeModalOutside(event,'modal-routine')">
-    <div class="modal">
-      <div class="modal-header">루틴 추가/수정<button class="modal-close" onclick="closeModal('modal-routine')"><i class="ti ti-x"></i></button></div>
-      <div class="modal-body">
-        <input type="hidden" id="routine-edit-id">
-        <div class="form-row">
-          <div class="form-group"><label>종목</label><select id="routine-sport" class="sport-select"><option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option></select></div>
-          <div class="form-group"><label>카테고리</label><select id="routine-category"><option>웜업</option><option>기술훈련</option><option>체력훈련</option><option>쿨다운</option><option>기타</option></select></div>
-        </div>
-        <div class="form-group"><label>루틴 이름</label><input type="text" id="routine-name" placeholder="예: 네트 앞 발리 연습"></div>
-        <div class="form-row">
-          <div class="form-group"><label>세트</label><input type="number" id="routine-sets" placeholder="3" min="0"></div>
-          <div class="form-group"><label>횟수/시간</label><input type="text" id="routine-reps" placeholder="15회 또는 5분"></div>
-        </div>
-        <div class="form-group"><label>메모</label><textarea id="routine-memo" rows="2" placeholder="방법, 주의사항 등"></textarea></div>
-      </div>
-      <div class="modal-footer">
-        <button class="del-btn" id="routine-del-btn" onclick="deleteRoutine()">삭제</button>
-        <button class="save-btn" onclick="saveRoutine()">저장</button>
+      <div class="modal-ft">
+        <button class="btn-del" id="log-del" onclick="deleteLog()">삭제</button>
+        <button class="btn-save" onclick="saveLog()">저장</button>
       </div>
     </div>
   </div>
 
-  <!-- 캘린더 모달 -->
-  <div id="modal-calendar" class="modal-overlay" onclick="closeModalOutside(event,'modal-calendar')">
+  <!-- 모달: 루틴 -->
+  <div id="m-routine" class="modal-overlay" onclick="closeOut(event,'m-routine')">
     <div class="modal">
-      <div class="modal-header">일정 추가/수정<button class="modal-close" onclick="closeModal('modal-calendar')"><i class="ti ti-x"></i></button></div>
+      <div class="modal-hd">루틴 추가/수정<button class="modal-close" onclick="closeModal('m-routine')">×</button></div>
       <div class="modal-body">
-        <input type="hidden" id="cal-edit-id">
+        <input type="hidden" id="rt-id">
         <div class="form-row">
-          <div class="form-group"><label>날짜</label><input type="date" id="cal-date"></div>
-          <div class="form-group"><label>종목</label><select id="cal-sport" class="sport-select"><option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option></select></div>
+          <div class="fg"><label>종목</label><select id="rt-sport"><option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option></select></div>
+          <div class="fg"><label>카테고리</label><select id="rt-cat"><option>웜업</option><option>기술훈련</option><option>체력훈련</option><option>쿨다운</option><option>기타</option></select></div>
         </div>
-        <div class="form-group"><label>유형</label><select id="cal-type"><option>훈련</option><option>레슨</option><option>대회</option><option>시합</option><option>기타</option></select></div>
-        <div class="form-group"><label>제목</label><input type="text" id="cal-title" placeholder="예: 지역 오픈 대회"></div>
-        <div class="form-group"><label>메모</label><textarea id="cal-memo" rows="2" placeholder="장소, 시간 등"></textarea></div>
+        <div class="fg"><label>루틴 이름</label><input type="text" id="rt-name" placeholder="예: 네트 앞 발리 연습"></div>
+        <div class="form-row">
+          <div class="fg"><label>세트</label><input type="number" id="rt-sets" placeholder="3" min="0"></div>
+          <div class="fg"><label>횟수/시간</label><input type="text" id="rt-reps" placeholder="15회 또는 5분"></div>
+        </div>
+        <div class="fg"><label>메모</label><textarea id="rt-memo" rows="2"></textarea></div>
       </div>
-      <div class="modal-footer">
-        <button class="del-btn" id="cal-del-btn" onclick="deleteCalEvent()">삭제</button>
-        <button class="save-btn" onclick="saveCalEvent()">저장</button>
+      <div class="modal-ft">
+        <button class="btn-del" id="rt-del" onclick="deleteRoutine()">삭제</button>
+        <button class="btn-save" onclick="saveRoutine()">저장</button>
       </div>
     </div>
   </div>
 
-  <!-- 목표 모달 -->
-  <div id="modal-goal" class="modal-overlay" onclick="closeModalOutside(event,'modal-goal')">
+  <!-- 모달: 캘린더 -->
+  <div id="m-cal" class="modal-overlay" onclick="closeOut(event,'m-cal')">
     <div class="modal">
-      <div class="modal-header">목표 설정<button class="modal-close" onclick="closeModal('modal-goal')"><i class="ti ti-x"></i></button></div>
+      <div class="modal-hd">일정 추가/수정<button class="modal-close" onclick="closeModal('m-cal')">×</button></div>
       <div class="modal-body">
-        <input type="hidden" id="goal-edit-id">
+        <input type="hidden" id="cal-id">
         <div class="form-row">
-          <div class="form-group"><label>종목</label><select id="goal-sport" class="sport-select"><option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option></select></div>
-          <div class="form-group"><label>마감일</label><input type="date" id="goal-deadline"></div>
+          <div class="fg"><label>날짜</label><input type="date" id="cal-date"></div>
+          <div class="fg"><label>종목</label><select id="cal-sport"><option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option></select></div>
         </div>
-        <div class="form-group"><label>목표 제목</label><input type="text" id="goal-title" placeholder="예: 이달 훈련 20회 달성"></div>
-        <div class="form-row">
-          <div class="form-group"><label>목표값</label><input type="number" id="goal-target" placeholder="20" min="0"></div>
-          <div class="form-group"><label>현재값</label><input type="number" id="goal-current" placeholder="0" min="0"></div>
-          <div class="form-group"><label>단위</label><input type="text" id="goal-unit" placeholder="회, km, kg"></div>
-        </div>
-        <div class="form-group"><label>메모</label><textarea id="goal-memo" rows="2"></textarea></div>
+        <div class="fg"><label>유형</label><select id="cal-type"><option>훈련</option><option>레슨</option><option>대회</option><option>시합</option><option>기타</option></select></div>
+        <div class="fg"><label>제목</label><input type="text" id="cal-title" placeholder="예: 지역 오픈 대회"></div>
+        <div class="fg"><label>메모</label><textarea id="cal-memo" rows="2"></textarea></div>
       </div>
-      <div class="modal-footer">
-        <button class="del-btn" id="goal-del-btn" onclick="deleteGoal()">삭제</button>
-        <button class="save-btn" onclick="saveGoal()">저장</button>
+      <div class="modal-ft">
+        <button class="btn-del" id="cal-del" onclick="deleteCal()">삭제</button>
+        <button class="btn-save" onclick="saveCal()">저장</button>
       </div>
     </div>
   </div>
 
-  <!-- 영상 모달 -->
-  <div id="modal-video" class="modal-overlay" onclick="closeModalOutside(event,'modal-video')">
+  <!-- 모달: 목표 -->
+  <div id="m-goal" class="modal-overlay" onclick="closeOut(event,'m-goal')">
     <div class="modal">
-      <div class="modal-header">영상 추가<button class="modal-close" onclick="closeModal('modal-video')"><i class="ti ti-x"></i></button></div>
+      <div class="modal-hd">목표 설정<button class="modal-close" onclick="closeModal('m-goal')">×</button></div>
       <div class="modal-body">
-        <div class="form-group"><label>YouTube URL</label><input type="url" id="video-url" placeholder="https://youtu.be/..."></div>
-        <div class="form-group"><label>제목</label><input type="text" id="video-title" placeholder="영상 제목"></div>
+        <input type="hidden" id="goal-id">
         <div class="form-row">
-          <div class="form-group"><label>종목</label><select id="video-sport" class="sport-select"><option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option></select></div>
-          <div class="form-group"><label>카테고리</label><select id="video-category"><option>기술/전략</option><option>체력훈련</option><option>경기분석</option><option>동기부여</option><option>기타</option></select></div>
+          <div class="fg"><label>종목</label><select id="goal-sport"><option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option></select></div>
+          <div class="fg"><label>마감일</label><input type="date" id="goal-dead"></div>
         </div>
-        <div class="form-group"><label>메모</label><textarea id="video-memo" rows="2" placeholder="참고 포인트"></textarea></div>
+        <div class="fg"><label>목표 제목</label><input type="text" id="goal-title" placeholder="예: 이달 훈련 20회 달성"></div>
+        <div class="form-row">
+          <div class="fg"><label>목표값</label><input type="number" id="goal-target" placeholder="20" min="0"></div>
+          <div class="fg"><label>현재값</label><input type="number" id="goal-current" placeholder="0" min="0"></div>
+          <div class="fg"><label>단위</label><input type="text" id="goal-unit" placeholder="회, km, kg"></div>
+        </div>
+        <div class="fg"><label>메모</label><textarea id="goal-memo" rows="2"></textarea></div>
       </div>
-      <div class="modal-footer"><button class="save-btn" onclick="saveVideo()">저장</button></div>
-    </div>
-  </div>
-
-  <!-- 장비 모달 -->
-  <div id="modal-equipment" class="modal-overlay" onclick="closeModalOutside(event,'modal-equipment')">
-    <div class="modal">
-      <div class="modal-header">장비 추가/수정<button class="modal-close" onclick="closeModal('modal-equipment')"><i class="ti ti-x"></i></button></div>
-      <div class="modal-body">
-        <input type="hidden" id="eq-edit-id">
-        <div class="form-row">
-          <div class="form-group"><label>종목</label><select id="eq-sport" class="sport-select"><option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option></select></div>
-          <div class="form-group"><label>카테고리</label><select id="eq-category"><option>라켓/장비</option><option>신발</option><option>의류</option><option>스트링/거트</option><option>보호대</option><option>기타</option></select></div>
-        </div>
-        <div class="form-row">
-          <div class="form-group"><label>브랜드</label><input type="text" id="eq-brand" placeholder="Yonex"></div>
-          <div class="form-group"><label>모델명</label><input type="text" id="eq-model" placeholder="Astrox 88D"></div>
-        </div>
-        <div class="form-group"><label>세부 정보</label><input type="text" id="eq-detail" placeholder="텐션 24lbs, 사이즈 265mm 등"></div>
-        <div class="form-group"><label>구매일</label><input type="date" id="eq-purchase"></div>
-        <div class="form-group"><label>메모</label><textarea id="eq-memo" rows="2" placeholder="사용 소감, 교체 주기 등"></textarea></div>
-      </div>
-      <div class="modal-footer">
-        <button class="del-btn" id="eq-del-btn" onclick="deleteEquipment()">삭제</button>
-        <button class="save-btn" onclick="saveEquipment()">저장</button>
+      <div class="modal-ft">
+        <button class="btn-del" id="goal-del" onclick="deleteGoal()">삭제</button>
+        <button class="btn-save" onclick="saveGoal()">저장</button>
       </div>
     </div>
   </div>
 
-  <!-- 메모 모달 -->
-  <div id="modal-memo" class="modal-overlay" onclick="closeModalOutside(event,'modal-memo')">
+  <!-- 모달: 영상 -->
+  <div id="m-video" class="modal-overlay" onclick="closeOut(event,'m-video')">
     <div class="modal">
-      <div class="modal-header">메모 작성<button class="modal-close" onclick="closeModal('modal-memo')"><i class="ti ti-x"></i></button></div>
+      <div class="modal-hd">영상 추가<button class="modal-close" onclick="closeModal('m-video')">×</button></div>
       <div class="modal-body">
-        <input type="hidden" id="memo-edit-id">
-        <div class="form-group"><label>카테고리</label><select id="memo-category"><option>훈련팁</option><option>전략/전술</option><option>목표/계획</option><option>부상/건강</option><option>기타</option></select></div>
-        <div class="form-group"><label>제목</label><input type="text" id="memo-title" placeholder="메모 제목"></div>
-        <div class="form-group"><label>내용</label><textarea id="memo-content" rows="6" placeholder="내용을 입력하세요"></textarea></div>
+        <div class="fg"><label>YouTube URL</label><input type="url" id="vd-url" placeholder="https://youtu.be/..."></div>
+        <div class="fg"><label>제목</label><input type="text" id="vd-title"></div>
+        <div class="form-row">
+          <div class="fg"><label>종목</label><select id="vd-sport"><option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option></select></div>
+          <div class="fg"><label>카테고리</label><select id="vd-cat"><option>기술/전략</option><option>체력훈련</option><option>경기분석</option><option>동기부여</option><option>기타</option></select></div>
+        </div>
+        <div class="fg"><label>메모</label><textarea id="vd-memo" rows="2"></textarea></div>
       </div>
-      <div class="modal-footer">
-        <button class="del-btn" id="memo-del-btn" onclick="deleteMemo()">삭제</button>
-        <button class="save-btn" onclick="saveMemo()">저장</button>
+      <div class="modal-ft"><button class="btn-save" onclick="saveVideo()">저장</button></div>
+    </div>
+  </div>
+
+  <!-- 모달: 장비 -->
+  <div id="m-eq" class="modal-overlay" onclick="closeOut(event,'m-eq')">
+    <div class="modal">
+      <div class="modal-hd">장비 추가/수정<button class="modal-close" onclick="closeModal('m-eq')">×</button></div>
+      <div class="modal-body">
+        <input type="hidden" id="eq-id">
+        <div class="form-row">
+          <div class="fg"><label>종목</label><select id="eq-sport"><option>배드민턴</option><option>수영</option><option>헬스</option><option>축구</option><option>농구</option><option>테니스</option><option>달리기</option><option>자전거</option><option>기타</option></select></div>
+          <div class="fg"><label>카테고리</label><select id="eq-cat"><option>라켓/장비</option><option>신발</option><option>의류</option><option>스트링/거트</option><option>보호대</option><option>기타</option></select></div>
+        </div>
+        <div class="form-row">
+          <div class="fg"><label>브랜드</label><input type="text" id="eq-brand" placeholder="Yonex"></div>
+          <div class="fg"><label>모델명</label><input type="text" id="eq-model" placeholder="Astrox 88D"></div>
+        </div>
+        <div class="fg"><label>세부 정보</label><input type="text" id="eq-detail" placeholder="텐션 24lbs 등"></div>
+        <div class="fg"><label>구매일</label><input type="date" id="eq-buy"></div>
+        <div class="fg"><label>메모</label><textarea id="eq-memo" rows="2"></textarea></div>
+      </div>
+      <div class="modal-ft">
+        <button class="btn-del" id="eq-del" onclick="deleteEq()">삭제</button>
+        <button class="btn-save" onclick="saveEq()">저장</button>
       </div>
     </div>
   </div>
 
-  <!-- 앱 설정 모달 -->
-  <div id="modal-settings" class="modal-overlay" onclick="closeModalOutside(event,'modal-settings')">
+  <!-- 모달: 메모 -->
+  <div id="m-memo" class="modal-overlay" onclick="closeOut(event,'m-memo')">
     <div class="modal">
-      <div class="modal-header">앱 설정<button class="modal-close" onclick="closeModal('modal-settings')"><i class="ti ti-x"></i></button></div>
+      <div class="modal-hd">메모 작성<button class="modal-close" onclick="closeModal('m-memo')">×</button></div>
       <div class="modal-body">
-        <div class="form-group">
-          <label>앱 제목</label>
-          <input type="text" id="cfg-title" placeholder="SPORT LOG">
-        </div>
-        <div class="form-group">
-          <label>부제목</label>
-          <input type="text" id="cfg-subtitle" placeholder="오늘도 기록한다">
-        </div>
-        <div class="form-group">
-          <label>종목 목록</label>
-          <div class="cfg-note">쉼표(,)로 구분해서 입력하세요</div>
-          <textarea id="cfg-sports" rows="3" placeholder="배드민턴, 수영, 헬스, 축구"></textarea>
-        </div>
+        <input type="hidden" id="memo-id">
+        <div class="fg"><label>카테고리</label><select id="memo-cat"><option>훈련팁</option><option>전략/전술</option><option>목표/계획</option><option>부상/건강</option><option>기타</option></select></div>
+        <div class="fg"><label>제목</label><input type="text" id="memo-title"></div>
+        <div class="fg"><label>내용</label><textarea id="memo-content" rows="6"></textarea></div>
       </div>
-      <div class="modal-footer"><button class="save-btn" onclick="saveSettings()">저장</button></div>
+      <div class="modal-ft">
+        <button class="btn-del" id="memo-del" onclick="deleteMemo()">삭제</button>
+        <button class="btn-save" onclick="saveMemo()">저장</button>
+      </div>
     </div>
   </div>
 
   <div id="toast" class="toast"></div>
 </div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, addDoc, getDocs, deleteDoc, updateDoc, query, where, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDak_jmHLaqYBGbrK91C_ceZbV2MiLf_GY",
+  authDomain: "sports-19ecd.firebaseapp.com",
+  projectId: "sports-19ecd",
+  storageBucket: "sports-19ecd.firebasestorage.app",
+  messagingSenderId: "460834209817",
+  appId: "1:460834209817:web:3166dc9c1719c50763aa88"
+};
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+const provider = new GoogleAuthProvider();
+
+let currentUser = null;
+let logs=[], routines=[], events=[], videos=[], equipments=[], memos=[], goals=[];
+let currentSport = '전체';
+let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
+let starVal = 3;
+const COLORS = ['#1D9E75','#3b82f6','#f59e0b','#ef4444','#8b5cf6','#ec4899','#0ea5e9','#6b7280'];
+
+// ── 인증 ──────────────────────────────────────────────────
+window.signInWithGoogle = async () => {
+  try { await signInWithPopup(auth, provider); }
+  catch(e) { alert('로그인 실패: ' + e.message); }
+};
+window.signOut = async () => {
+  if(!confirm('로그아웃 하시겠습니까?')) return;
+  await fbSignOut(auth);
+};
+
+onAuthStateChanged(auth, user => {
+  if(user) {
+    currentUser = user;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('user-name').textContent = user.displayName?.split(' ')[0] || '사용자';
+    document.getElementById('user-photo').src = user.photoURL || '';
+    loadAll();
+    renderCalendar();
+    setTodayInputs();
+  } else {
+    currentUser = null;
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+  }
+});
+
+// ── 데이터 로드 ───────────────────────────────────────────
+async function loadAll() {
+  const uid = currentUser.uid;
+  const load = async (col, arr) => {
+    const q = query(collection(db, col), where('uid','==',uid));
+    const snap = await getDocs(q);
+    arr.length = 0;
+    snap.forEach(d => arr.push({id:d.id,...d.data()}));
+  };
+  await Promise.all([
+    load('logs', logs), load('routines', routines), load('events', events),
+    load('videos', videos), load('equipments', equipments), load('memos', memos), load('goals', goals)
+  ]);
+  renderDashboard(); renderLogs(); renderRoutines(); renderEventList();
+  renderVideos(); renderEquipments(); renderMemos(); renderGoals(); renderStats();
+  showToast('로드 완료 ✓');
+}
+
+// ── CRUD ──────────────────────────────────────────────────
+const addItem    = (col,data) => addDoc(collection(db,col),{...data,uid:currentUser.uid,createdAt:serverTimestamp()});
+const updateItem = (col,id,data) => updateDoc(doc(db,col,id),{...data});
+const deleteItem = (col,id) => deleteDoc(doc(db,col,id));
+
+// ── 탭 ────────────────────────────────────────────────────
+window.showTab = name => {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  const map={dashboard:0,log:1,routine:2,calendar:3,stats:4,goal:5,video:6,equipment:7,memo:8};
+  document.querySelectorAll('.nav button')[map[name]]?.classList.add('active');
+  if(name==='stats') renderStats();
+  if(name==='calendar') renderCalendar();
+};
+
+// ── 종목필터 ──────────────────────────────────────────────
+window.onSportChange = v => { currentSport=v; renderDashboard(); renderLogs(); renderRoutines(); renderVideos(); renderEquipments(); renderGoals(); };
+const fs = arr => currentSport==='전체' ? arr : arr.filter(x=>x.sport===currentSport);
+
+// ── 대시보드 ──────────────────────────────────────────────
+function renderDashboard() {
+  const now=new Date(), ym=now.toISOString().slice(0,7), yr=now.toISOString().slice(0,4);
+  const fl=fs(logs);
+  const mL=fl.filter(l=>String(l.date||'').slice(0,7)===ym);
+  const yL=fl.filter(l=>String(l.date||'').slice(0,4)===yr);
+  const vR=fl.filter(l=>l.rating);
+  const avg=vR.length?(vR.reduce((s,l)=>s+Number(l.rating),0)/vR.length).toFixed(1):'-';
+  $('s-month',mL.length); $('s-month-min',mL.reduce((s,l)=>s+(Number(l.duration)||0),0));
+  $('s-year',yL.length); $('s-rating',avg);
+  const today=now.toISOString().slice(0,10);
+  const up=fs(events).filter(e=>String(e.date||'')>=today).sort((a,b)=>String(a.date).localeCompare(String(b.date))).slice(0,3);
+  document.getElementById('upcoming-list').innerHTML=up.length?up.map(e=>{
+    const d=Math.ceil((new Date(e.date)-now)/864e5);
+    return `<div class="card" onclick="showTab('calendar')"><div class="card-header"><span class="card-title">${e.title||''}</span><span class="badge badge-blue">D-${d}</span></div><div class="card-sub">${e.date} · ${e.sport||''}</div></div>`;
+  }).join(''):'<div class="empty">다가오는 일정 없음</div>';
+  const rc=[...fl].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,5);
+  document.getElementById('recent-list').innerHTML=rc.length?rc.map(buildLogCard).join(''):'<div class="empty">기록된 훈련이 없습니다</div>';
+}
+
+// ── 훈련일지 ──────────────────────────────────────────────
+function buildLogCard(l) {
+  const stars='★'.repeat(Number(l.rating)||0)+'☆'.repeat(5-(Number(l.rating)||0));
+  const bm={최상:'badge-green',좋음:'badge-green',보통:'badge-blue',피로:'badge-orange',부상:'badge-red'};
+  return `<div class="card" onclick="editLog('${l.id}')">
+    <div class="card-header"><span class="card-title">${l.sport||''} ${l.type||''} · ${l.place||''}</span><span class="badge ${bm[l.condition]||'badge-blue'}">${l.condition||''}</span></div>
+    <div class="card-sub">${l.date||''} · ${l.duration||0}분 · ${l.partner||'-'}</div>
+    <div class="card-meta">${l.focus?`<span class="chip">🎯 ${l.focus}</span>`:''}<span class="chip" style="color:#f59e0b">${stars}</span></div>
+    ${l.good?`<div class="card-sub" style="margin-top:4px">✅ ${l.good}</div>`:''}
+  </div>`;
+}
+function renderLogs() {
+  let data=fs(logs);
+  const ft=document.getElementById('log-ft')?.value, fm=document.getElementById('log-fm')?.value;
+  if(ft) data=data.filter(l=>l.type===ft);
+  if(fm) data=data.filter(l=>String(l.date||'').slice(0,7)===fm);
+  data.sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  document.getElementById('log-list').innerHTML=data.length?data.map(buildLogCard).join(''):'<div class="empty">기록이 없습니다</div>';
+}
+window.openLogModal = () => { clearForm('m-log'); document.getElementById('log-del').style.display='none'; document.getElementById('log-date').value=new Date().toISOString().slice(0,10); setStar(3); openModal('m-log'); };
+window.editLog = id => {
+  const l=logs.find(x=>x.id===id); if(!l) return;
+  sv('log-id',l.id); sv('log-date',l.date); ss('log-sport',l.sport); ss('log-type',l.type);
+  sv('log-dur',l.duration); sv('log-place',l.place); sv('log-partner',l.partner); sv('log-focus',l.focus);
+  sv('log-good',l.good); sv('log-improve',l.improve); ss('log-cond',l.condition); setStar(Number(l.rating)||3); sv('log-memo',l.memo);
+  document.getElementById('log-del').style.display='inline-block'; openModal('m-log');
+};
+window.saveLog = async () => {
+  const id=gv('log-id');
+  const data={date:gv('log-date'),sport:gv('log-sport'),type:gv('log-type'),duration:gv('log-dur'),place:gv('log-place'),partner:gv('log-partner'),focus:gv('log-focus'),good:gv('log-good'),improve:gv('log-improve'),condition:gv('log-cond'),rating:gv('log-rating'),memo:gv('log-memo')};
+  try{ id?await updateItem('logs',id,data):await addItem('logs',data); await loadAll(); closeModal('m-log'); showToast('저장 완료 ✓'); }catch(e){showToast('오류: '+e.message);}
+};
+window.deleteLog = async () => {
+  if(!confirm('삭제할까요?')) return;
+  try{ await deleteItem('logs',gv('log-id')); await loadAll(); closeModal('m-log'); showToast('삭제 완료'); }catch(e){showToast('오류: '+e.message);}
+};
+
+// ── 루틴 ──────────────────────────────────────────────────
+function renderRoutines() {
+  let data=fs(routines);
+  const fs2=document.getElementById('rt-fs')?.value, fc=document.getElementById('rt-fc')?.value;
+  if(fs2) data=data.filter(r=>r.sport===fs2);
+  if(fc)  data=data.filter(r=>r.category===fc);
+  const order=['웜업','기술훈련','체력훈련','쿨다운','기타'];
+  const g={}; data.forEach(r=>{const c=r.category||'기타';(g[c]=g[c]||[]).push(r);});
+  document.getElementById('routine-list').innerHTML=Object.keys(g).length?order.filter(c=>g[c]).map(c=>`<div style="margin-bottom:16px"><div class="sec-title">${c}</div>${g[c].map(r=>`<div class="card" onclick="editRoutine('${r.id}')"><div class="card-header"><span class="card-title">${r.name||''}</span><span class="badge badge-green">${r.sport||''}</span></div><div class="card-sub">${r.sets?r.sets+'세트':''} ${r.reps||''} ${r.memo?'· '+r.memo:''}</div></div>`).join('')}</div>`).join(''):'<div class="empty">루틴이 없습니다</div>';
+}
+window.openRoutineModal = () => { clearForm('m-routine'); document.getElementById('rt-del').style.display='none'; openModal('m-routine'); };
+window.editRoutine = id => {
+  const r=routines.find(x=>x.id===id); if(!r) return;
+  sv('rt-id',r.id); ss('rt-sport',r.sport); ss('rt-cat',r.category); sv('rt-name',r.name); sv('rt-sets',r.sets); sv('rt-reps',r.reps); sv('rt-memo',r.memo);
+  document.getElementById('rt-del').style.display='inline-block'; openModal('m-routine');
+};
+window.saveRoutine = async () => {
+  const id=gv('rt-id');
+  const data={sport:gv('rt-sport'),category:gv('rt-cat'),name:gv('rt-name'),sets:gv('rt-sets'),reps:gv('rt-reps'),memo:gv('rt-memo')};
+  try{ id?await updateItem('routines',id,data):await addItem('routines',data); await loadAll(); closeModal('m-routine'); showToast('저장 완료 ✓'); }catch(e){showToast('오류: '+e.message);}
+};
+window.deleteRoutine = async () => {
+  if(!confirm('삭제할까요?')) return;
+  try{ await deleteItem('routines',gv('rt-id')); await loadAll(); closeModal('m-routine'); showToast('삭제 완료'); }catch(e){showToast('오류: '+e.message);}
+};
+
+// ── 캘린더 ────────────────────────────────────────────────
+function renderCalendar() {
+  document.getElementById('cal-label').textContent=`${calYear}년 ${calMonth+1}월`;
+  const first=new Date(calYear,calMonth,1), last=new Date(calYear,calMonth+1,0);
+  const today=new Date().toISOString().slice(0,10);
+  const days=['일','월','화','수','목','금','토'];
+  let html=days.map(d=>`<div class="cal-head">${d}</div>`).join('');
+  for(let i=0;i<first.getDay();i++) html+=`<div class="cal-day other"><div class="dn"></div></div>`;
+  for(let d=1;d<=last.getDate();d++){
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const hasEv=events.some(e=>String(e.date)===ds);
+    html+=`<div class="cal-day${ds===today?' today':''}${hasEv?' has-event':''}" onclick="openCalModal('${ds}')"><div class="dn">${d}</div></div>`;
+  }
+  document.getElementById('cal-grid').innerHTML=html;
+  renderEventList();
+}
+function renderEventList() {
+  const data=fs(events).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  const today=new Date().toISOString().slice(0,10);
+  document.getElementById('event-list').innerHTML=data.length?data.map(e=>`<div class="card${e.date<today?' faded':''}" onclick="editCal('${e.id}')"><div class="card-header"><span class="card-title">${e.title||''}</span><span class="badge badge-blue">${e.type||''}</span></div><div class="card-sub">${e.date||''} · ${e.sport||''}</div>${e.memo?`<div class="card-sub">${e.memo}</div>`:''}</div>`).join(''):'<div class="empty">등록된 일정 없음</div>';
+}
+window.changeMonth = dir => { calMonth+=dir; if(calMonth<0){calMonth=11;calYear--;}else if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); };
+window.openCalModal = date => { clearForm('m-cal'); sv('cal-date',date||new Date().toISOString().slice(0,10)); document.getElementById('cal-del').style.display='none'; openModal('m-cal'); };
+window.editCal = id => {
+  const e=events.find(x=>x.id===id); if(!e) return;
+  sv('cal-id',e.id); sv('cal-date',e.date); ss('cal-sport',e.sport); ss('cal-type',e.type); sv('cal-title',e.title); sv('cal-memo',e.memo);
+  document.getElementById('cal-del').style.display='inline-block'; openModal('m-cal');
+};
+window.saveCal = async () => {
+  const id=gv('cal-id');
+  const data={date:gv('cal-date'),sport:gv('cal-sport'),type:gv('cal-type'),title:gv('cal-title'),memo:gv('cal-memo')};
+  try{ id?await updateItem('events',id,data):await addItem('events',data); await loadAll(); closeModal('m-cal'); showToast('저장 완료 ✓'); }catch(e){showToast('오류: '+e.message);}
+};
+window.deleteCal = async () => {
+  if(!confirm('삭제할까요?')) return;
+  try{ await deleteItem('events',gv('cal-id')); await loadAll(); closeModal('m-cal'); showToast('삭제 완료'); }catch(e){showToast('오류: '+e.message);}
+};
+
+// ── 통계 ──────────────────────────────────────────────────
+function renderStats() {
+  const fl=fs(logs), now=new Date(), ym=now.toISOString().slice(0,7);
+  const mL=fl.filter(l=>String(l.date||'').slice(0,7)===ym);
+  const totalMin=fl.reduce((s,l)=>s+(Number(l.duration)||0),0);
+  document.getElementById('stat-grid2').innerHTML=`
+    <div class="stat-card"><div class="stat-label">총 훈련</div><div class="stat-val">${fl.length}</div><div class="stat-unit">회</div></div>
+    <div class="stat-card"><div class="stat-label">총 시간</div><div class="stat-val">${Math.round(totalMin/60*10)/10}</div><div class="stat-unit">시간</div></div>
+    <div class="stat-card"><div class="stat-label">이번 달</div><div class="stat-val">${mL.length}</div><div class="stat-unit">회</div></div>
+    <div class="stat-card"><div class="stat-label">이번 달</div><div class="stat-val">${mL.reduce((s,l)=>s+(Number(l.duration)||0),0)}</div><div class="stat-unit">분</div></div>`;
+  const md={};
+  for(let i=5;i>=0;i--){const d=new Date(now.getFullYear(),now.getMonth()-i,1);md[d.toISOString().slice(0,7)]={count:0,label:(d.getMonth()+1)+'월'};}
+  fl.forEach(l=>{const k=String(l.date||'').slice(0,7);if(md[k])md[k].count++;});
+  const maxC=Math.max(...Object.values(md).map(x=>x.count),1);
+  document.getElementById('bar-chart').innerHTML=`<div class="bar-inner">${Object.values(md).map(v=>`<div class="bar-item"><span class="bar-val">${v.count}</span><div class="bar-fill" style="height:${Math.round(v.count/maxC*84)}px"></div><span class="bar-lbl">${v.label}</span></div>`).join('')}</div>`;
+  const sc={};fl.forEach(l=>{const s=l.sport||'기타';sc[s]=(sc[s]||0)+1;});
+  document.getElementById('sport-chart').innerHTML=Object.entries(sc).sort((a,b)=>b[1]-a[1]).map(([s,c],i)=>`<div class="sport-item"><div class="sport-dot" style="background:${COLORS[i%COLORS.length]}"></div><span class="sport-lbl">${s}</span><span class="sport-cnt">${c}회</span></div>`).join('');
+}
+
+// ── 목표 ──────────────────────────────────────────────────
+function renderGoals() {
+  const data=fs(goals);
+  document.getElementById('goal-list').innerHTML=data.length?data.map(g=>{
+    const pct=g.target?Math.min(100,Math.round(Number(g.current)/Number(g.target)*100)):0;
+    return `<div class="card" onclick="editGoal('${g.id}')"><div class="card-header"><span class="card-title">${g.title||''}</span><span class="badge badge-green">${g.sport||''}</span></div><div class="card-sub">${g.current||0} / ${g.target||0} ${g.unit||''} · 마감: ${g.deadline||'-'}</div><div class="prog-bg"><div class="prog-fill" style="width:${pct}%"></div></div><div class="prog-txt">${pct}%</div></div>`;
+  }).join(''):'<div class="empty">설정된 목표 없음</div>';
+}
+window.openGoalModal = () => { clearForm('m-goal'); document.getElementById('goal-del').style.display='none'; openModal('m-goal'); };
+window.editGoal = id => {
+  const g=goals.find(x=>x.id===id); if(!g) return;
+  sv('goal-id',g.id); ss('goal-sport',g.sport); sv('goal-title',g.title); sv('goal-target',g.target); sv('goal-current',g.current); sv('goal-unit',g.unit); sv('goal-dead',g.deadline); sv('goal-memo',g.memo);
+  document.getElementById('goal-del').style.display='inline-block'; openModal('m-goal');
+};
+window.saveGoal = async () => {
+  const id=gv('goal-id');
+  const data={sport:gv('goal-sport'),title:gv('goal-title'),target:gv('goal-target'),current:gv('goal-current'),unit:gv('goal-unit'),deadline:gv('goal-dead'),memo:gv('goal-memo')};
+  try{ id?await updateItem('goals',id,data):await addItem('goals',data); await loadAll(); closeModal('m-goal'); showToast('저장 완료 ✓'); }catch(e){showToast('오류: '+e.message);}
+};
+window.deleteGoal = async () => {
+  if(!confirm('삭제할까요?')) return;
+  try{ await deleteItem('goals',gv('goal-id')); await loadAll(); closeModal('m-goal'); showToast('삭제 완료'); }catch(e){showToast('오류: '+e.message);}
+};
+
+// ── 영상 ──────────────────────────────────────────────────
+function renderVideos() {
+  let data=fs(videos);
+  const fsp=document.getElementById('vd-fs')?.value; if(fsp) data=data.filter(v=>v.sport===fsp);
+  document.getElementById('video-list').innerHTML=data.length?data.map(v=>`<div class="video-card" onclick="window.open('${v.url}','_blank')">${v.thumbnail?`<img class="video-thumb" src="${v.thumbnail}" alt="">`:`<div class="no-thumb">▶</div>`}<div class="video-info"><div class="video-title">${v.title||v.url||''}</div><div class="video-sub">${v.sport||''} · ${v.category||''}</div></div></div>`).join(''):'<div class="empty" style="grid-column:1/-1">등록된 영상 없음</div>';
+}
+window.openVideoModal = () => { clearForm('m-video'); openModal('m-video'); };
+window.saveVideo = async () => {
+  const url=gv('vd-url'); if(!url){showToast('URL을 입력해 주세요');return;}
+  const m=url.match(/(?:v=|youtu\.be\/)([^&?/]+)/);
+  const data={url,title:gv('vd-title'),sport:gv('vd-sport'),category:gv('vd-cat'),memo:gv('vd-memo'),thumbnail:m?`https://img.youtube.com/vi/${m[1]}/mqdefault.jpg`:''};
+  try{ await addItem('videos',data); await loadAll(); closeModal('m-video'); showToast('저장 완료 ✓'); }catch(e){showToast('오류: '+e.message);}
+};
+
+// ── 장비 ──────────────────────────────────────────────────
+function renderEquipments() {
+  const data=fs(equipments);
+  const g={}; data.forEach(e=>{const c=e.category||'기타';(g[c]=g[c]||[]).push(e);});
+  document.getElementById('eq-list').innerHTML=Object.keys(g).length?Object.entries(g).map(([cat,items])=>`<div style="margin-bottom:16px"><div class="sec-title">${cat}</div>${items.map(e=>`<div class="card" onclick="editEq('${e.id}')"><div class="card-header"><span class="card-title">${e.brand||''} ${e.model||''}</span><span class="badge badge-purple">${e.sport||''}</span></div>${e.detail?`<div class="card-sub">${e.detail}</div>`:''}</div>`).join('')}</div>`).join(''):'<div class="empty">등록된 장비 없음</div>';
+}
+window.openEqModal = () => { clearForm('m-eq'); document.getElementById('eq-del').style.display='none'; openModal('m-eq'); };
+window.editEq = id => {
+  const e=equipments.find(x=>x.id===id); if(!e) return;
+  sv('eq-id',e.id); ss('eq-sport',e.sport); ss('eq-cat',e.category); sv('eq-brand',e.brand); sv('eq-model',e.model); sv('eq-detail',e.detail); sv('eq-buy',e.purchaseDate); sv('eq-memo',e.memo);
+  document.getElementById('eq-del').style.display='inline-block'; openModal('m-eq');
+};
+window.saveEq = async () => {
+  const id=gv('eq-id');
+  const data={sport:gv('eq-sport'),category:gv('eq-cat'),brand:gv('eq-brand'),model:gv('eq-model'),detail:gv('eq-detail'),purchaseDate:gv('eq-buy'),memo:gv('eq-memo')};
+  try{ id?await updateItem('equipments',id,data):await addItem('equipments',data); await loadAll(); closeModal('m-eq'); showToast('저장 완료 ✓'); }catch(e){showToast('오류: '+e.message);}
+};
+window.deleteEq = async () => {
+  if(!confirm('삭제할까요?')) return;
+  try{ await deleteItem('equipments',gv('eq-id')); await loadAll(); closeModal('m-eq'); showToast('삭제 완료'); }catch(e){showToast('오류: '+e.message);}
+};
+
+// ── 메모 ──────────────────────────────────────────────────
+function renderMemos() {
+  const data=[...memos].sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  document.getElementById('memo-list').innerHTML=data.length?data.map(m=>`<div class="card" onclick="editMemo('${m.id}')"><div class="card-header"><span class="card-title">${m.title||''}</span><span class="badge badge-blue">${m.category||''}</span></div><div class="card-sub">${(m.content||'').slice(0,60)}${(m.content||'').length>60?'…':''}</div></div>`).join(''):'<div class="empty">작성된 메모 없음</div>';
+}
+window.openMemoModal = () => { clearForm('m-memo'); document.getElementById('memo-del').style.display='none'; openModal('m-memo'); };
+window.editMemo = id => {
+  const m=memos.find(x=>x.id===id); if(!m) return;
+  sv('memo-id',m.id); ss('memo-cat',m.category); sv('memo-title',m.title); sv('memo-content',m.content);
+  document.getElementById('memo-del').style.display='inline-block'; openModal('m-memo');
+};
+window.saveMemo = async () => {
+  const id=gv('memo-id');
+  const data={category:gv('memo-cat'),title:gv('memo-title'),content:gv('memo-content')};
+  try{ id?await updateItem('memos',id,data):await addItem('memos',data); await loadAll(); closeModal('m-memo'); showToast('저장 완료 ✓'); }catch(e){showToast('오류: '+e.message);}
+};
+window.deleteMemo = async () => {
+  if(!confirm('삭제할까요?')) return;
+  try{ await deleteItem('memos',gv('memo-id')); await loadAll(); closeModal('m-memo'); showToast('삭제 완료'); }catch(e){showToast('오류: '+e.message);}
+};
+
+// ── 유틸 ──────────────────────────────────────────────────
+const gv = id => (document.getElementById(id)?.value||'').trim();
+const sv = (id,v) => { const el=document.getElementById(id); if(el) el.value=v||''; };
+const ss = (id,v) => { const el=document.getElementById(id); if(!el||!v) return; [...el.options].forEach(o=>o.selected=o.value===v||o.text===v); };
+const $  = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+
+window.setStar = n => {
+  starVal=n; sv('log-rating',n);
+  document.querySelectorAll('.star').forEach((s,i)=>s.classList.toggle('on',i<n));
+};
+function setStar(n){window.setStar(n);}
+
+function setTodayInputs(){
+  const t=new Date().toISOString().slice(0,10);
+  ['log-date','cal-date'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=t;});
+}
+
+window.openModal  = id => document.getElementById(id).classList.add('open');
+window.closeModal = id => document.getElementById(id).classList.remove('open');
+window.closeOut   = (e,id) => { if(e.target.id===id) closeModal(id); };
+
+function clearForm(modalId){
+  document.querySelectorAll(`#${modalId} input:not([type=hidden]),#${modalId} textarea`).forEach(el=>el.value='');
+  const h=document.querySelector(`#${modalId} input[type=hidden]`);if(h)h.value='';
+}
+
+let toastTimer;
+window.showToast = msg => {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+};
+</script>
 </body>
 </html>
