@@ -246,7 +246,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     <button onclick="joinClass()" style="width:100%;background:#fff;border:none;border-radius:14px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;color:#0F6E56;font-family:'Noto Sans KR',sans-serif">입장하기</button>
     <button onclick="skipClass()" style="width:100%;background:none;border:none;color:rgba(255,255,255,.6);font-size:13px;cursor:pointer;margin-top:12px;font-family:'Noto Sans KR',sans-serif">반 코드 없이 개인으로 사용</button>
   </div>
-  <button onclick="signOut()" style="margin-top:24px;background:none;border:none;color:rgba(255,255,255,.4);font-size:12px;cursor:pointer;font-family:'Noto Sans KR',sans-serif">로그아웃</button>
+  <div style="display:flex;gap:16px;margin-top:20px">
+    <button onclick="goBackToRole()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);border-radius:10px;color:rgba(255,255,255,.7);padding:8px 18px;font-size:13px;cursor:pointer;font-family:'Noto Sans KR',sans-serif">← 역할 선택으로</button>
+    <button onclick="signOut()" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:13px;cursor:pointer;font-family:'Noto Sans KR',sans-serif">로그아웃</button>
+  </div>
 </div>
 
 <!-- 교사 대시보드 -->
@@ -377,6 +380,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
       </div>
       <div class="header-right">
         <select id="global-sport" onchange="onSportChange(this.value)"></select>
+        <button onclick="goBackToRole()" style="background:none;border:1px solid #c8d8cc;border-radius:20px;padding:5px 10px;font-size:11px;color:#666;cursor:pointer;font-family:'Noto Sans KR',sans-serif">역할변경</button>
         <div class="user-chip" onclick="signOut()">
           <img id="user-photo" src="" alt="">
           <span id="user-name"></span>
@@ -916,6 +920,12 @@ window.joinClass = async () => {
 };
 
 window.skipClass = () => showStudentApp();
+
+window.goBackToRole = () => {
+  // Firebase에서 role 정보 삭제 → 다시 역할 선택 화면으로
+  hideAllScreens();
+  document.getElementById('role-screen').style.display = 'flex';
+};
 
 function showStudentApp() {
   hideAllScreens();
