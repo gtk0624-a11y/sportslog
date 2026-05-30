@@ -478,17 +478,91 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
       <div class="modal-hd">목표 설정<button class="modal-close" onclick="closeModal('m-goal')">×</button></div>
       <div class="modal-body">
         <input type="hidden" id="goal-id">
+
         <div class="form-row">
-          <div class="fg"><label>종목</label><select id="goal-sport"></select></div>
+          <div class="fg"><label>종목</label><select id="goal-sport" onchange="onGoalSportChange()"></select></div>
           <div class="fg"><label>마감일</label><input type="date" id="goal-dead"></div>
         </div>
-        <div class="fg"><label>목표 제목</label><input type="text" id="goal-title" placeholder="예: 이달 훈련 20회 달성"></div>
-        <div class="form-row">
-          <div class="fg"><label>목표값</label><input type="number" id="goal-target" placeholder="20" min="0"></div>
-          <div class="fg"><label>현재값</label><input type="number" id="goal-current" placeholder="0" min="0"></div>
-          <div class="fg"><label>단위</label><input type="text" id="goal-unit" placeholder="회, km, kg"></div>
+
+        <div class="fg"><label>목표 유형</label>
+          <select id="goal-type" onchange="onGoalTypeChange()">
+            <option value="">유형 선택</option>
+            <optgroup label="🏆 대회/시합">
+              <option value="contest_win">대회 우승/입상</option>
+              <option value="contest_part">대회 참가</option>
+              <option value="rank_up">급수/랭킹 향상</option>
+            </optgroup>
+            <optgroup label="⏱ 기록/속도">
+              <option value="speed_100m">100m 달리기 기록</option>
+              <option value="speed_1500m">오래달리기 기록</option>
+              <option value="distance">멀리뛰기/거리 기록</option>
+              <option value="shuttle">셔틀런 기록</option>
+              <option value="personal_rec">개인 최고 기록</option>
+            </optgroup>
+            <optgroup label="💪 체력/신체">
+              <option value="weight_loss">체중 감량</option>
+              <option value="weight_gain">체중 증량</option>
+              <option value="muscle">근육량 증가</option>
+              <option value="fat_loss">체지방 감소</option>
+              <option value="strength">근력 향상 (1RM)</option>
+              <option value="grip">악력 향상</option>
+            </optgroup>
+            <optgroup label="📋 훈련량">
+              <option value="train_count">이달 훈련 횟수</option>
+              <option value="train_streak">연속 훈련 일수</option>
+              <option value="train_hour">총 훈련 시간</option>
+            </optgroup>
+            <optgroup label="🎯 기술/전술">
+              <option value="skill_tech">특정 기술 습득</option>
+              <option value="skill_score">기능 점수 향상</option>
+              <option value="team_goal">팀 목표</option>
+            </optgroup>
+            <optgroup label="✏️ 기타">
+              <option value="custom">직접 입력</option>
+            </optgroup>
+          </select>
         </div>
-        <div class="fg"><label>메모</label><textarea id="goal-memo" rows="2"></textarea></div>
+
+        <div class="fg"><label>목표 제목 <span style="font-size:11px;color:#1D9E75">(구체적으로!)</span></label>
+          <input type="text" id="goal-title" placeholder="예: 지역 배드민턴 대회 3위 이내 입상">
+        </div>
+
+        <div class="fg" id="goal-detail-wrap">
+          <label>구체적인 목표 내용</label>
+          <textarea id="goal-detail" rows="2" placeholder="예: 스매시 정확도 80% 이상, 서브 실수 5% 이하로 줄이기"></textarea>
+        </div>
+
+        <div class="fg" id="goal-strategy-wrap">
+          <label>달성 전략</label>
+          <textarea id="goal-strategy" rows="2" placeholder="예: 주 3회 훈련, 매일 30분 풋워크 연습"></textarea>
+        </div>
+
+        <div id="goal-numeric-wrap">
+          <div class="form-row">
+            <div class="fg"><label id="goal-target-label">목표값</label>
+              <input type="number" id="goal-target" placeholder="0" min="0" step="0.1">
+            </div>
+            <div class="fg"><label id="goal-current-label">현재값</label>
+              <input type="number" id="goal-current" placeholder="0" min="0" step="0.1">
+            </div>
+            <div class="fg"><label>단위</label>
+              <input type="text" id="goal-unit" placeholder="회, 초, kg, %">
+            </div>
+          </div>
+        </div>
+
+        <div class="fg"><label>달성 기준 / 메모</label>
+          <textarea id="goal-memo" rows="2" placeholder="목표 달성 기준을 명확하게 적어두세요"></textarea>
+        </div>
+
+        <div class="fg"><label>상태</label>
+          <select id="goal-status">
+            <option value="진행중">🔥 진행중</option>
+            <option value="달성">✅ 달성</option>
+            <option value="포기">❌ 포기</option>
+            <option value="보류">⏸ 보류</option>
+          </select>
+        </div>
       </div>
       <div class="modal-ft"><button class="btn-del" id="goal-del" onclick="deleteGoal()">삭제</button><button class="btn-save" onclick="saveGoal()">저장</button></div>
     </div>
@@ -1077,28 +1151,150 @@ function renderStats() {
 }
 
 // ── 목표 ──────────────────────────────────────────────────
+const GOAL_TYPE_META = {
+  contest_win:  { label:'대회 우승/입상', numeric:false, hint:'목표 대회명과 목표 순위를 적어주세요' },
+  contest_part: { label:'대회 참가',      numeric:false, hint:'참가할 대회명과 일정을 적어주세요' },
+  rank_up:      { label:'급수/랭킹 향상', numeric:true,  targetLabel:'목표 급수/랭킹', currentLabel:'현재 급수/랭킹', unit:'' },
+  speed_100m:   { label:'100m 기록',      numeric:true,  targetLabel:'목표 기록(초)',   currentLabel:'현재 기록(초)',   unit:'초' },
+  speed_1500m:  { label:'오래달리기 기록',numeric:true,  targetLabel:'목표 기록(초)',   currentLabel:'현재 기록(초)',   unit:'초' },
+  distance:     { label:'멀리뛰기/거리',  numeric:true,  targetLabel:'목표 거리(cm)',   currentLabel:'현재 기록(cm)',   unit:'cm' },
+  shuttle:      { label:'셔틀런',         numeric:true,  targetLabel:'목표 횟수',       currentLabel:'현재 횟수',       unit:'회' },
+  personal_rec: { label:'개인 최고 기록', numeric:true,  targetLabel:'목표값',          currentLabel:'현재값',          unit:'' },
+  weight_loss:  { label:'체중 감량',      numeric:true,  targetLabel:'목표 체중(kg)',    currentLabel:'현재 체중(kg)',   unit:'kg' },
+  weight_gain:  { label:'체중 증량',      numeric:true,  targetLabel:'목표 체중(kg)',    currentLabel:'현재 체중(kg)',   unit:'kg' },
+  muscle:       { label:'근육량 증가',    numeric:true,  targetLabel:'목표 근육량(kg)',  currentLabel:'현재 근육량(kg)', unit:'kg' },
+  fat_loss:     { label:'체지방 감소',    numeric:true,  targetLabel:'목표 체지방(%)',   currentLabel:'현재 체지방(%)',  unit:'%' },
+  strength:     { label:'근력 향상(1RM)', numeric:true,  targetLabel:'목표 무게(kg)',    currentLabel:'현재 무게(kg)',   unit:'kg' },
+  grip:         { label:'악력 향상',      numeric:true,  targetLabel:'목표 악력(kg)',    currentLabel:'현재 악력(kg)',   unit:'kg' },
+  train_count:  { label:'이달 훈련 횟수', numeric:true,  targetLabel:'목표 횟수',       currentLabel:'현재 횟수',       unit:'회' },
+  train_streak: { label:'연속 훈련 일수', numeric:true,  targetLabel:'목표 일수',       currentLabel:'현재 일수',       unit:'일' },
+  train_hour:   { label:'총 훈련 시간',   numeric:true,  targetLabel:'목표 시간(분)',    currentLabel:'현재 시간(분)',   unit:'분' },
+  skill_tech:   { label:'기술 습득',      numeric:false, hint:'습득하고 싶은 기술과 수준을 적어주세요' },
+  skill_score:  { label:'기능 점수 향상', numeric:true,  targetLabel:'목표 점수',       currentLabel:'현재 점수',       unit:'점' },
+  team_goal:    { label:'팀 목표',        numeric:false, hint:'팀 전체 목표를 구체적으로 적어주세요' },
+  custom:       { label:'직접 입력',      numeric:true,  targetLabel:'목표값',          currentLabel:'현재값',          unit:'' },
+};
+
+const STATUS_BADGE = { '진행중':'badge-blue', '달성':'badge-green', '포기':'badge-red', '보류':'badge-orange' };
+const STATUS_ICON  = { '진행중':'🔥', '달성':'✅', '포기':'❌', '보류':'⏸' };
+
+window.onGoalTypeChange = () => {
+  const t = document.getElementById('goal-type').value;
+  const meta = GOAL_TYPE_META[t] || {};
+  const numWrap = document.getElementById('goal-numeric-wrap');
+  numWrap.style.display = meta.numeric ? 'block' : 'none';
+  if(meta.numeric) {
+    document.getElementById('goal-target-label').textContent  = meta.targetLabel  || '목표값';
+    document.getElementById('goal-current-label').textContent = meta.currentLabel || '현재값';
+    document.getElementById('goal-unit').value = meta.unit || '';
+  }
+  const detailEl = document.getElementById('goal-detail');
+  if(meta.hint) detailEl.placeholder = meta.hint;
+};
+
+window.onGoalSportChange = () => {
+  const sport = document.getElementById('goal-sport').value;
+  const titleEl = document.getElementById('goal-title');
+  const examples = {
+    '배드민턴':'예: 지역 오픈 대회 3위 이내 / 스매시 속도 200km/h 이상',
+    '웨이트':'예: 벤치프레스 1RM 100kg 달성 / 스쿼트 자세 완성',
+    '러닝':'예: 10km 완주 / 마라톤 서브4 달성',
+    '수영':'예: 자유형 50m 30초 이내 / 접영 기술 완성',
+    '축구':'예: 이번 시즌 5골 이상 / 팀 지역 리그 우승',
+    '야구':'예: 타율 3할 이상 / 직구 구속 130km 이상',
+    '농구':'예: 3점슛 성공률 40% 이상 / 팀 토너먼트 우승',
+    '배구':'예: 스파이크 성공률 70% 이상 / 서브 에이스 경기당 2개',
+  };
+  titleEl.placeholder = examples[sport] || '예: 구체적인 목표를 적어주세요';
+};
+
 function renderGoals() {
-  const data=fs(goals);
-  document.getElementById('goal-list').innerHTML = data.length ? data.map(g=>{
-    const pct=g.target?Math.min(100,Math.round(Number(g.current)/Number(g.target)*100)):0;
-    return `<div class="card" onclick="editGoal('${g.id}')">
-      <div class="card-header"><span class="card-title">${g.title||''}</span><span class="badge badge-green">${g.sport||''}</span></div>
-      <div class="card-sub">${g.current||0} / ${g.target||0} ${g.unit||''} · 마감: ${g.deadline||'-'}</div>
-      <div class="prog-bg"><div class="prog-fill" style="width:${pct}%"></div></div>
-      <div class="prog-txt">${pct}%</div>
-    </div>`;
-  }).join('') : '<div class="empty">설정된 목표 없음</div>';
+  const data = fs(goals);
+  const active  = data.filter(g=>g.status==='진행중'||!g.status);
+  const done    = data.filter(g=>g.status==='달성');
+  const paused  = data.filter(g=>g.status==='포기'||g.status==='보류');
+
+  const renderGroup = (arr, title) => {
+    if(!arr.length) return '';
+    return `<div class="sec-title" style="margin-top:16px">${title}</div>`
+      + arr.map(g => {
+        const meta = GOAL_TYPE_META[g.goalType] || {};
+        const pct = meta.numeric && g.target ? Math.min(100, Math.round(Number(g.current)/Number(g.target)*100)) : null;
+        const status = g.status || '진행중';
+        const today = new Date().toISOString().slice(0,10);
+        const dday = g.deadline ? Math.ceil((new Date(g.deadline)-new Date(today))/864e5) : null;
+        const ddayTxt = dday!==null ? (dday<0?`D+${Math.abs(dday)} 종료`:`D-${dday}`) : '';
+        return `<div class="card" onclick="editGoal('${g.id}')">
+          <div class="card-header">
+            <span class="card-title">${STATUS_ICON[status]||'🎯'} ${g.title||''}</span>
+            <span class="badge ${STATUS_BADGE[status]||'badge-blue'}">${status}</span>
+          </div>
+          <div style="display:flex;gap:6px;margin:5px 0;flex-wrap:wrap">
+            ${g.sport?`<span class="chip">🏅 ${g.sport}</span>`:''}
+            ${meta.label?`<span class="chip">${meta.label}</span>`:''}
+            ${g.deadline?`<span class="chip" style="color:${dday<0?'#ef4444':dday<7?'#f59e0b':'#666'}">${ddayTxt} (${g.deadline})</span>`:''}
+          </div>
+          ${g.detail?`<div class="card-sub" style="margin-top:4px;color:#333">📌 ${g.detail}</div>`:''}
+          ${g.strategy?`<div class="card-sub" style="margin-top:2px">🗺 ${g.strategy}</div>`:''}
+          ${pct!==null?`
+            <div style="margin-top:8px">
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#555;margin-bottom:4px">
+                <span>${g.current||0} ${g.unit||''} → ${g.target||0} ${g.unit||''}</span>
+                <span style="font-weight:700;color:#1D9E75">${pct}%</span>
+              </div>
+              <div class="prog-bg"><div class="prog-fill" style="width:${pct}%"></div></div>
+            </div>`:''
+          }
+          ${g.memo?`<div class="card-sub" style="margin-top:4px;font-size:11px;color:#888">💬 ${g.memo}</div>`:''}
+        </div>`;
+      }).join('');
+  };
+
+  const html = renderGroup(active,'🔥 진행중') + renderGroup(done,'✅ 달성') + renderGroup(paused,'⏸ 보류/포기');
+  document.getElementById('goal-list').innerHTML = html || '<div class="empty">설정된 목표 없음</div>';
 }
-window.openGoalModal = () => { clearForm('m-goal'); document.getElementById('goal-del').style.display='none'; openModal('m-goal'); };
+
+window.openGoalModal = () => {
+  clearForm('m-goal');
+  document.getElementById('goal-del').style.display='none';
+  document.getElementById('goal-numeric-wrap').style.display='none';
+  document.getElementById('goal-status').value='진행중';
+  openModal('m-goal');
+};
+
 window.editGoal = id => {
   const g=goals.find(x=>x.id===id); if(!g) return;
-  sv('goal-id',g.id); ss('goal-sport',g.sport); sv('goal-title',g.title);
-  sv('goal-target',g.target); sv('goal-current',g.current); sv('goal-unit',g.unit); sv('goal-dead',g.deadline); sv('goal-memo',g.memo);
-  document.getElementById('goal-del').style.display='inline-block'; openModal('m-goal');
+  sv('goal-id',g.id); ss('goal-sport',g.sport); ss('goal-type',g.goalType);
+  sv('goal-title',g.title); sv('goal-detail',g.detail); sv('goal-strategy',g.strategy);
+  sv('goal-target',g.target); sv('goal-current',g.current); sv('goal-unit',g.unit);
+  sv('goal-dead',g.deadline); sv('goal-memo',g.memo); ss('goal-status',g.status||'진행중');
+  // 타입에 따라 UI 업데이트
+  const meta = GOAL_TYPE_META[g.goalType]||{};
+  document.getElementById('goal-numeric-wrap').style.display = meta.numeric?'block':'none';
+  if(meta.numeric){
+    document.getElementById('goal-target-label').textContent  = meta.targetLabel  || '목표값';
+    document.getElementById('goal-current-label').textContent = meta.currentLabel || '현재값';
+  }
+  document.getElementById('goal-del').style.display='inline-block';
+  openModal('m-goal');
 };
+
 window.saveGoal = async () => {
   const id=gv('goal-id');
-  const data={sport:gv('goal-sport'),title:gv('goal-title'),target:gv('goal-target'),current:gv('goal-current'),unit:gv('goal-unit'),deadline:gv('goal-dead'),memo:gv('goal-memo')};
+  const data={
+    sport:    gv('goal-sport'),
+    goalType: gv('goal-type'),
+    title:    gv('goal-title'),
+    detail:   gv('goal-detail'),
+    strategy: gv('goal-strategy'),
+    target:   gv('goal-target'),
+    current:  gv('goal-current'),
+    unit:     gv('goal-unit'),
+    deadline: gv('goal-dead'),
+    memo:     gv('goal-memo'),
+    status:   gv('goal-status')||'진행중',
+  };
+  if(!data.title){ showToast('목표 제목을 입력해주세요'); return; }
   try{ id?await updateItem('goals',id,data):await addItem('goals',data); await loadAll(); closeModal('m-goal'); showToast('저장 완료 ✓'); }catch(e){showToast('오류: '+e.message);}
 };
 window.deleteGoal = async () => {
