@@ -276,7 +276,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   </div>
 
   <!-- 교사 탭: 대시보드 -->
-  <div id="t-tab-dashboard-content" style="padding:110px 16px 24px">
+  <div id="t-tab-dashboard-content" style="padding:16px 16px 40px">
     <!-- 반 전체 통계 -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px" id="t-stat-grid"></div>
 
@@ -314,7 +314,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   </div>
 
   <!-- 교사 탭: 학생 목록 -->
-  <div id="t-tab-students-content" style="display:none;padding:110px 16px 24px">
+  <div id="t-tab-students-content" style="display:none;padding:16px 16px 40px">
     <div style="display:flex;gap:8px;margin-bottom:14px">
       <input type="text" id="t-student-search" placeholder="학생 이름 검색..." onkeyup="renderStudentList()"
         style="flex:1;border:1px solid #c8d8cc;border-radius:10px;padding:9px 14px;font-size:14px;font-family:'Noto Sans KR',sans-serif;outline:none">
@@ -324,7 +324,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   </div>
 
   <!-- 교사 탭: 반 관리 -->
-  <div id="t-tab-manage-content" style="display:none;padding:110px 16px 24px">
+  <div id="t-tab-manage-content" style="display:none;padding:16px 16px 80px">
 
     <!-- ① 학급 기본 설정 (먼저!) -->
     <div style="background:#fff;border-radius:14px;border:1px solid #c8d8cc;padding:16px;margin-bottom:14px">
@@ -414,7 +414,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
     </div>
   </div>
 
-  <nav class="nav">
+  <nav class="nav" id="student-nav">
     <button class="active" onclick="showTab('dashboard')"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>홈</button>
     <button onclick="showTab('log')"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>일지</button>
     <button onclick="showTab('routine')"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><polyline points="3 6 4 7 6 5"/><polyline points="3 12 4 13 6 11"/><polyline points="3 18 4 19 6 17"/></svg>루틴</button>
