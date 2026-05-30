@@ -315,6 +315,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
       <button class="gtab" onclick="setGrowthTab('skill',this)">🎯 운동기능</button>
       <button class="gtab" onclick="setGrowthTab('monthly',this)">📅 훈련횟수</button>
       <button class="gtab" onclick="setGrowthTab('duration',this)">⏱ 운동시간</button>
+      <button class="gtab" onclick="setGrowthTab('custom',this)">✏️ 기타</button>
     </div>
     <div class="chart-box">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -405,7 +406,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
       <div class="modal-body">
         <input type="hidden" id="rt-id">
         <div class="form-row">
-          <div class="fg"><label>종목</label><select id="rt-sport"></select></div>
+          <div class="fg"><label>종목</label><input type="text" id="rt-sport" placeholder="예: 배드민턴, 헬스, 수영 등 직접 입력"></div>
           <div class="fg"><label>카테고리</label><select id="rt-cat"><option>준비운동(웜업)</option><option>기술훈련</option><option>체력훈련</option><option>근력훈련</option><option>유산소훈련</option><option>스트레칭</option><option>쿨다운</option><option>기타</option></select></div>
         </div>
         <div class="fg"><label>루틴 이름</label><input type="text" id="rt-name" placeholder="예: 스쿼트 3세트"></div>
@@ -460,10 +461,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
             </select>
           </div>
         </div>
-        <div class="fg" id="gr-label-wrap" style="display:none"><label>항목명 직접 입력</label><input type="text" id="gr-label" placeholder="예: 벤치프레스 1RM"></div>
+        <div class="fg" id="gr-label-wrap"><label>항목명 <span style="color:#1D9E75;font-size:11px">(기타 선택 시 직접 입력)</span></label><input type="text" id="gr-label" placeholder="예: 벤치프레스 1RM, 제자리 높이뛰기 등" readonly></div>
         <div class="form-row">
           <div class="fg"><label>측정값</label><input type="number" id="gr-value" placeholder="0" step="0.1"></div>
-          <div class="fg"><label>단위</label><input type="text" id="gr-unit" placeholder="kg, 회, 초, cm 등" id="gr-unit"></div>
+          <div class="fg"><label>단위 <span style="color:#1D9E75;font-size:11px">(수정 가능)</span></label><input type="text" id="gr-unit" placeholder="kg, 회, 초, cm 등"></div>
         </div>
         <div class="fg"><label>메모</label><textarea id="gr-memo" rows="2" placeholder="측정 환경, 특이사항 등"></textarea></div>
       </div>
@@ -806,7 +807,7 @@ function renderRoutines() {
 window.openRoutineModal = () => { clearForm('m-routine'); document.getElementById('rt-del').style.display='none'; openModal('m-routine'); };
 window.editRoutine = id => {
   const r=routines.find(x=>x.id===id); if(!r) return;
-  sv('rt-id',r.id); ss('rt-sport',r.sport); ss('rt-cat',r.category);
+  sv('rt-id',r.id); sv('rt-sport',r.sport); ss('rt-cat',r.category);
   sv('rt-name',r.name); sv('rt-sets',r.sets); sv('rt-reps',r.reps); sv('rt-memo',r.memo);
   document.getElementById('rt-del').style.display='inline-block'; openModal('m-routine');
 };
@@ -876,13 +877,19 @@ const GROWTH_META = {
   skill:    { label:'운동기능',  unit:'점', higher:true  },
   monthly:  { label:'월별 훈련횟수', unit:'회', higher:true },
   duration: { label:'월별 운동시간', unit:'분', higher:true },
-  custom:   { label:'직접 입력', unit:'',   higher:true  },
+  custom:   { label:'기타 기록', unit:'',    higher:true  },
 };
 window.onGrowthTypeChange = () => {
   const t=document.getElementById('gr-type').value;
-  document.getElementById('gr-label-wrap').style.display=t==='custom'?'flex':'none';
-  const u=document.getElementById('gr-unit');
-  if(GROWTH_META[t]) u.value=GROWTH_META[t].unit;
+  const labelEl=document.getElementById('gr-label');
+  const meta=GROWTH_META[t]||{};
+  if(t==='custom'){
+    labelEl.value=''; labelEl.readOnly=false; labelEl.placeholder='항목명 직접 입력 (예: 벤치프레스 1RM)';
+    document.getElementById('gr-unit').value='';
+  } else {
+    labelEl.value=meta.label||''; labelEl.readOnly=true;
+    document.getElementById('gr-unit').value=meta.unit||'';
+  }
 };
 window.setGrowthTab = (tab,btn) => {
   currentGrowthTab=tab;
@@ -894,7 +901,10 @@ window.openGrowthModal = () => {
   clearForm('m-growth');
   document.getElementById('gr-del').style.display='none';
   document.getElementById('gr-date').value=new Date().toISOString().slice(0,10);
-  document.getElementById('gr-label-wrap').style.display='none';
+  // 기본값 weight로 세팅
+  document.getElementById('gr-type').value='weight';
+  document.getElementById('gr-label').value='체중';
+  document.getElementById('gr-label').readOnly=true;
   document.getElementById('gr-unit').value='kg';
   openModal('m-growth');
 };
@@ -902,7 +912,8 @@ window.editGrowth = id => {
   const g=growthData.find(x=>x.id===id); if(!g) return;
   sv('gr-id',g.id); sv('gr-date',g.date); ss('gr-type',g.type);
   sv('gr-label',g.label||''); sv('gr-value',g.value); sv('gr-unit',g.unit); sv('gr-memo',g.memo);
-  document.getElementById('gr-label-wrap').style.display=g.type==='custom'?'flex':'none';
+  const labelEl=document.getElementById('gr-label');
+  labelEl.readOnly=g.type!=='custom';
   document.getElementById('gr-del').style.display='inline-block'; openModal('m-growth');
 };
 window.saveGrowth = async () => {
