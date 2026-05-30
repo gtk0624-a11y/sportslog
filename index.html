@@ -30,6 +30,7 @@ const firebaseConfig = {
 
 const app  = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
 const db   = getFirestore(app);
 
 // ── 앱 설정 (편집 가능) ────────────────────────────────────
@@ -88,7 +89,7 @@ onAuthStateChanged(auth, user => {
 
 window.loginGoogle = async () => {
   try {
-    await signInWithPopup(auth, new GoogleAuthProvider());
+    await signInWithPopup(auth, provider);
   } catch(e) { showToast('로그인 실패: ' + e.message); }
 };
 
