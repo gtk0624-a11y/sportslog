@@ -1051,11 +1051,9 @@ window.saveStudentList = async () => {
     .map(line => line.replace(/\t/g, ' ').trim())  // 탭을 공백으로
     .map(line => line.split(' ').filter(x=>x)[0] || '')  // 첫 번째 단어만 (이름만)
     .filter(n => n.length > 0)
-    .join('
-');
+    .join('\n');
   document.getElementById('t-student-names').value = cleaned;
-  const count = cleaned.split('
-').filter(n=>n.trim()).length;
+  const count = cleaned.split('\n').filter(n=>n.trim()).length;
   try {
     await updateDoc(doc(db,'classes',classData.id), { studentNames: cleaned });
     classData.studentNames = cleaned;
@@ -1073,8 +1071,7 @@ window.clearStudentNames = () => {
 
 window.updateStudentCount = () => {
   const val = document.getElementById('t-student-names').value;
-  const cnt = val.split('
-').filter(function(n){ return n.trim(); }).length;
+  const cnt = val.split('\n').filter(function(n){ return n.trim(); }).length;
   document.getElementById('t-student-count').textContent = cnt;
 };
 
