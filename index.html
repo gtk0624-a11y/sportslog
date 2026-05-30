@@ -10,7 +10,6 @@
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc,
   query, where, orderBy, onSnapshot, serverTimestamp }
@@ -77,14 +76,7 @@ function showLogin() {
   unsubscribes = [];
 }
 
-// 리다이렉트 로그인 결과 먼저 확인
-getRedirectResult(auth).then(result => {
-  if (result && result.user) {
-    showApp(result.user);
-  }
-}).catch(e => console.log('redirect error:', e));
-
-// 일반 상태 변화 감지
+// 로그인 상태 감지
 onAuthStateChanged(auth, user => {
   currentUser = user;
   if (user) {
@@ -96,7 +88,7 @@ onAuthStateChanged(auth, user => {
 
 window.loginGoogle = async () => {
   try {
-    await signInWithRedirect(auth, new GoogleAuthProvider());
+    await signInWithPopup(auth, new GoogleAuthProvider());
   } catch(e) { showToast('로그인 실패: ' + e.message); }
 };
 
