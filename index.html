@@ -1051,7 +1051,7 @@ window.saveStudentList = async () => {
 
 ]/)
     .map(line => line.replace(/	/g, ' ').trim())  // 탭을 공백으로
-    .map(line => line.split(/\s+/)[0] || '')       // 첫 번째 단어만 (이름만)
+    .map(line => line.split(' ').filter(x=>x)[0] || '')  // 첫 번째 단어만 (이름만)
     .filter(n => n.length > 0)
     .join('
 ');
