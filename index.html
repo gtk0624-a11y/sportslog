@@ -874,11 +874,14 @@ async function checkUserRole() {
     if(userDoc.exists()) {
       const data = userDoc.data();
       currentRole = data.role;
-      if(currentRole === 'teacher') {
+      if(!currentRole) {
+        // role 없음 → 역할 선택
+        document.getElementById('role-screen').style.display = 'flex';
+      } else if(currentRole === 'teacher') {
         await loadTeacherData();
         showTeacherApp();
       } else {
-        // 학생: 반 코드 있으면 바로 앱
+        // 학생
         showStudentApp();
       }
     } else {
@@ -921,8 +924,12 @@ window.joinClass = async () => {
 
 window.skipClass = () => showStudentApp();
 
-window.goBackToRole = () => {
-  // Firebase에서 role 정보 삭제 → 다시 역할 선택 화면으로
+window.goBackToRole = async () => {
+  // Firebase role 초기화 → 다시 역할 선택 화면으로
+  try {
+    await setDoc(doc(db,'users',currentUser.uid), { role: null }, { merge: true });
+  } catch(e) {}
+  currentRole = null;
   hideAllScreens();
   document.getElementById('role-screen').style.display = 'flex';
 };
