@@ -568,7 +568,6 @@ function renderClsList(kw=''){
   const el=e('tcll'); if(!el)return;
   const cntEl=e('cls-cnt'); if(cntEl)cntEl.textContent='('+myCls.length+'개)';
   if(curCls){const nc=(curCls.studentNames||'').split('\n').filter(n=>n.trim()).length; e('tinf').textContent=`[${myCls.length}개 학급] ${curCls.name||'반 없음'} · 코드: ${curCls.code||'-'} · 명단 ${nc}명 (로그인 ${(curCls.studentUids||[]).length}명)`;} else {e('tinf').textContent=`학급 ${myCls.length}개 등록됨 · 학급을 선택하세요`;}
-  else e('tinf').textContent='학급을 선택하거나 새로 만드세요';
   const filtered=kw?myCls.filter(c=>(c.name||'').toLowerCase().includes(kw.toLowerCase())):myCls;
   if(!myCls.length){el.innerHTML='<div class="empty">학급이 없습니다. 새 학급을 만들어주세요.</div>'; e('sclsp').style.display='none'; return;}
   if(!filtered.length){el.innerHTML='<div class="empty">검색 결과 없음</div>'; return;}
