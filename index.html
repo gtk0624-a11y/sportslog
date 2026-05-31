@@ -421,11 +421,13 @@ body{font-family:"Noto Sans KR",sans-serif;background:var(--bg);color:var(--t1);
   <div id="tc-mg" class="tc">
     <!-- 학급 목록 -->
     <div class="tcard">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="tct">🏫 내 학급 목록</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="tct">🏫 내 학급 목록 <span id="cls-cnt" style="font-size:13px;color:var(--g);font-weight:700"></span></div>
         <button onclick="showNewCls()" style="background:var(--g);border:none;border-radius:8px;color:#fff;padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:Noto Sans KR,sans-serif">+ 새 학급</button>
       </div>
-      <div id="tcll"></div>
+      <input type="text" id="cls-search" placeholder="학급 이름 검색..." oninput="filterClsList()"
+        style="width:100%;border:1px solid var(--bd);border-radius:10px;padding:8px 13px;font-size:13px;font-family:Noto Sans KR,sans-serif;outline:none;margin-bottom:10px">
+      <div id="tcll" style="max-height:320px;overflow-y:auto"></div>
     </div>
     <!-- 새 학급 폼 -->
     <div id="nclsf" style="display:none">
@@ -562,12 +564,15 @@ window.showTTab=name=>{
     e('tt-'+t).classList.toggle('on',t===name);
   });
 };
-function renderClsList(){
+function renderClsList(kw=''){
   const el=e('tcll'); if(!el)return;
-  if(curCls) e('tinf').textContent=`${curCls.name||'반 없음'} · 코드: ${curCls.code||'-'} · 학생 ${(curCls.studentUids||[]).length}명`;
+  const cntEl=e('cls-cnt'); if(cntEl)cntEl.textContent='('+myCls.length+'개)';
+  if(curCls){const nc=(curCls.studentNames||'').split('\n').filter(n=>n.trim()).length; e('tinf').textContent=`[${myCls.length}개 학급] ${curCls.name||'반 없음'} · 코드: ${curCls.code||'-'} · 명단 ${nc}명 (로그인 ${(curCls.studentUids||[]).length}명)`;} else {e('tinf').textContent=`학급 ${myCls.length}개 등록됨 · 학급을 선택하세요`;}
   else e('tinf').textContent='학급을 선택하거나 새로 만드세요';
+  const filtered=kw?myCls.filter(c=>(c.name||'').toLowerCase().includes(kw.toLowerCase())):myCls;
   if(!myCls.length){el.innerHTML='<div class="empty">학급이 없습니다. 새 학급을 만들어주세요.</div>'; e('sclsp').style.display='none'; return;}
-  el.innerHTML=myCls.map(c=>`
+  if(!filtered.length){el.innerHTML='<div class="empty">검색 결과 없음</div>'; return;}
+  el.innerHTML=filtered.map(c=>`
     <div class="cls-item${curCls&&curCls.id===c.id?' sel':''}" onclick="selCls('${c.id}')">
       <div><div style="font-size:14px;font-weight:700;color:var(--t1)">${c.name||'이름 없음'}</div><div style="font-size:12px;color:var(--t3);margin-top:2px">코드: ${c.code||'-'} · 학생 ${(c.studentUids||[]).length}명</div></div>
       ${curCls&&curCls.id===c.id?'<span style="font-size:12px;background:var(--g);color:#fff;border-radius:20px;padding:3px 10px;font-weight:700">선택됨</span>':'<span style="font-size:12px;color:var(--t4)">▶ 선택</span>'}
@@ -582,7 +587,8 @@ function renderClsList(){
     else{e('tsn').value=''; e('tsc').textContent='0';}
   }else e('sclsp').style.display='none';
 }
-window.selCls=async id=>{curCls=myCls.find(c=>c.id===id)||null; renderClsList(); await loadAllStu(); showTTab('mg');};
+window.filterClsList=()=>{const kw=e('cls-search')?.value||'';renderClsList(kw);};
+window.selCls=async id=>{curCls=myCls.find(c=>c.id===id)||null; renderClsList(e('cls-search')?.value||''); await loadAllStu(); showTTab('mg');};
 window.showNewCls=()=>{e('nclsf').style.display='block'; e('nclsn').value=''; e('nclss').value=''; e('nclsn').focus();};
 window.hideNewCls=()=>e('nclsf').style.display='none';
 window.createCls=async()=>{
@@ -592,7 +598,7 @@ window.createCls=async()=>{
   try{
     const ref=await addDoc(collection(db,'classes'),{code,name,sport,teacherUid:CU.uid,studentUids:[],createdAt:serverTimestamp()});
     const nc={id:ref.id,code,name,sport,teacherUid:CU.uid,studentUids:[]};
-    myCls.push(nc); curCls=nc; e('nclsf').style.display='none'; renderClsList(); t2('학급 생성 완료! 코드: '+code);
+    myCls.push(nc); curCls=nc; e('nclsf').style.display='none'; if(e('cls-search'))e('cls-search').value=''; renderClsList(); t2('학급 생성 완료! 코드: '+code);
   }catch(ex){t2('생성 실패: '+ex.message);}
 };
 window.updateCls=async()=>{
@@ -633,16 +639,27 @@ window.updateTC=()=>{const c=e('tsn').value.split('\n').filter(n=>n.trim()).leng
 // 학생 데이터
 async function loadAllStu(){
   allStu={};
-  const uids=(curCls?.studentUids||[]);
-  if(!uids.length){renderTDash(); renderStuList(); return;}
-  const nm=getStuNM();
-  await Promise.all(uids.map(async uid=>{
-    const [ls,gs,gls]=await Promise.all([getDocs(query(collection(db,'logs'),where('uid','==',uid))),getDocs(query(collection(db,'growth'),where('uid','==',uid))),getDocs(query(collection(db,'goals'),where('uid','==',uid)))]);
-    let uname=nm[uid]||uid.slice(0,8);
-    try{const ud=await getDoc(doc(db,'users',uid));if(ud.exists()&&ud.data().name)uname=ud.data().name;}catch(ex){}
-    allStu[uid]={uid,name:uname,logs:ls.docs.map(d=>({id:d.id,...d.data()})),growth:gs.docs.map(d=>({id:d.id,...d.data()})),goals:gls.docs.map(d=>({id:d.id,...d.data()}))};
-  }));
-  renderTDash(); renderStuList(); renderTGrowth();
+  if(!curCls){renderTDash();renderStuList();return;}
+  // 명단 기반 학생 먼저 등록
+  const nameList=(curCls.studentNames||'').split('\n').map(n=>n.trim()).filter(n=>n.length>0);
+  nameList.forEach((name,i)=>{
+    const fid='name_'+i+'_'+encodeURIComponent(name);
+    allStu[fid]={uid:fid,name,logs:[],growth:[],goals:[],nameOnly:true};
+  });
+  // 실제 로그인한 학생 데이터 로드
+  const uids=(curCls.studentUids||[]);
+  if(uids.length){
+    await Promise.all(uids.map(async uid=>{
+      const [ls,gs,gls]=await Promise.all([getDocs(query(collection(db,'logs'),where('uid','==',uid))),getDocs(query(collection(db,'growth'),where('uid','==',uid))),getDocs(query(collection(db,'goals'),where('uid','==',uid)))]);
+      let uname=uid.slice(0,8);
+      try{const ud=await getDoc(doc(db,'users',uid));if(ud.exists()&&ud.data().name)uname=ud.data().name;}catch(ex){}
+      // 명단에 같은 이름 있으면 매칭
+      const mk=Object.keys(allStu).find(k=>allStu[k].name===uname&&allStu[k].nameOnly);
+      const key=mk||uid;
+      allStu[key]={uid,name:uname,logs:ls.docs.map(d=>({id:d.id,...d.data()})),growth:gs.docs.map(d=>({id:d.id,...d.data()})),goals:gls.docs.map(d=>({id:d.id,...d.data()})),nameOnly:false};
+    }));
+  }
+  renderTDash();renderStuList();renderTGrowth();
 }
 function getStuNM(){
   if(!curCls?.studentNames)return{};
@@ -651,19 +668,18 @@ function getStuNM(){
 }
 function renderTDash(){
   const ss=Object.values(allStu), now=new Date(), yw=wkStart(now);
-  const tot=(curCls?.studentUids||[]).length;
+  const tot=Object.keys(allStu).length;
   const act=ss.filter(s=>s.logs.some(l=>new Date(l.date)>=yw)).length;
   const tl=ss.reduce((s,st)=>s+st.logs.length,0);
   const gd=ss.reduce((s,st)=>s+st.goals.filter(g=>g.status==='달성').length,0);
   e('tsg').innerHTML=`<div class="tsc"><div style="font-size:11px;color:var(--t3);margin-bottom:5px;font-weight:600">등록 학생</div><div style="font-family:Bebas Neue,sans-serif;font-size:32px;color:var(--g);line-height:1">${tot}</div><div style="font-size:11px;color:var(--t4)">명</div></div><div class="tsc"><div style="font-size:11px;color:var(--t3);margin-bottom:5px;font-weight:600">이번 주 참여</div><div style="font-family:Bebas Neue,sans-serif;font-size:32px;color:var(--g);line-height:1">${act}</div><div style="font-size:11px;color:var(--t4)">명</div></div><div class="tsc"><div style="font-size:11px;color:var(--t3);margin-bottom:5px;font-weight:600">전체 훈련</div><div style="font-family:Bebas Neue,sans-serif;font-size:32px;color:var(--g);line-height:1">${tl}</div><div style="font-size:11px;color:var(--t4)">건</div></div><div class="tsc"><div style="font-size:11px;color:var(--t3);margin-bottom:5px;font-weight:600">달성된 목표</div><div style="font-family:Bebas Neue,sans-serif;font-size:32px;color:var(--g);line-height:1">${gd}</div><div style="font-size:11px;color:var(--t4)">개</div></div>`;
-  const nm=getStuNM(), uids=(curCls?.studentUids||[]);
-  e('tatd').innerHTML=uids.map(uid=>{
-    const s=allStu[uid], name=s?.name||nm[uid]||uid.slice(0,8), wk=s?.logs.filter(l=>new Date(l.date)>=yw).length||0, tot2=s?.logs.length||0;
+  e('tatd').innerHTML=Object.values(allStu).map(s=>{
+    const {name='?',logs:sLg=[]} = s, wk=sLg.filter(l=>new Date(l.date)>=yw).length, tot2=sLg.length;
     return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px"><div style="width:68px;font-size:13px;font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div><div style="flex:1;background:var(--c3);border-radius:10px;height:8px"><div style="background:${wk>0?'var(--g)':'#d1d5db'};width:${Math.min(100,wk*33)}%;height:8px;border-radius:10px"></div></div><div style="font-size:12px;color:${wk>0?'var(--g)':'var(--t4)'};font-weight:700;white-space:nowrap">이번주 ${wk}회</div><div style="font-size:11px;color:var(--t4)">총${tot2}</div></div>`;
   }).join('')||'<div class="empty">연결된 학생 없음</div>';
-  e('tgoal').innerHTML=uids.map(uid=>{
-    const s=allStu[uid];if(!s)return'';
-    const done=s.goals.filter(g=>g.status==='달성').length, tot3=s.goals.length, pct=tot3?Math.round(done/tot3*100):0;
+  e('tgoal').innerHTML=Object.values(allStu).map(s=>{
+    if(!s)return'';
+    const done=(s.goals||[]).filter(g=>g.status==='달성').length, tot3=(s.goals||[]).length, pct=tot3?Math.round(done/tot3*100):0;
     return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:68px;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</div><div style="flex:1;background:var(--c3);border-radius:10px;height:7px"><div style="background:var(--g);width:${pct}%;height:7px;border-radius:10px"></div></div><div style="font-size:12px;color:var(--g);font-weight:700">${done}/${tot3} (${pct}%)</div></div>`;
   }).join('')||'<div class="empty">목표 데이터 없음</div>';
 }
@@ -678,12 +694,13 @@ window.renderTGrowth=()=>{
   canvas.style.height=canvas.height+'px';
 };
 window.renderStuList=()=>{
-  const kw=(e('tsch')?.value||'').toLowerCase(), uids=(curCls?.studentUids||[]), nm=getStuNM();
-  e('tsl').innerHTML=uids.filter(uid=>{const name=allStu[uid]?.name||nm[uid]||'';return !kw||name.toLowerCase().includes(kw);}).map(uid=>{
-    const s=allStu[uid]||{}, name=s.name||nm[uid]||uid.slice(0,8), tot=s.logs?.length||0, lat=s.logs?.sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0], gd=s.goals?.filter(g=>g.status==='달성').length||0, gt=s.goals?.length||0;
-    const sh=s.growth?.filter(g=>g.type==='shuttle').sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0]?.value||'-';
-    const lj=s.growth?.filter(g=>g.type==='longjump').sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0]?.value||'-';
-    return `<div class="scard" onclick="showStu('${uid}')"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px"><div style="font-size:15px;font-weight:700;color:var(--t1)">🧑‍🎓 ${name}</div><span style="font-size:11px;background:#d1fae5;color:#065f46;border-radius:20px;padding:2px 9px;font-weight:700">훈련 ${tot}회</span></div><div style="display:flex;flex-wrap:wrap;gap:5px;font-size:12px;color:var(--t3)"><span style="background:var(--c2);border-radius:8px;padding:2px 8px">최근: ${lat?.date||'-'}</span><span style="background:var(--c2);border-radius:8px;padding:2px 8px">목표 ${gd}/${gt} 달성</span><span style="background:var(--c2);border-radius:8px;padding:2px 8px">셔틀런 ${sh}회</span><span style="background:var(--c2);border-radius:8px;padding:2px 8px">멀리뛰기 ${lj}cm</span></div></div>`;
+  const kw=(e('tsch')?.value||'').toLowerCase();
+  e('tsl').innerHTML=Object.values(allStu).filter(s=>!kw||s.name.toLowerCase().includes(kw)).map(s=>{
+    const {uid,name='?',logs:sLg=[],goals:sGo=[],growth:sGr=[],nameOnly=false}=s, tot=sLg.length, lat=[...sLg].sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0], gd=sGo.filter(g=>g.status==='달성').length, gt=sGo.length;
+    const sh=sGr.filter(g=>g.type==='shuttle').sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0]?.value||'-';
+    const lj=sGr.filter(g=>g.type==='longjump').sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0]?.value||'-';
+    const nb=nameOnly?'<span style="font-size:10px;background:#fef3c7;color:#92400e;border-radius:10px;padding:1px 7px;margin-left:4px">미로그인</span>':'';
+    const onclick2=nameOnly?'':`onclick="showStu('${uid}')"`;return `<div class="scard" ${onclick2} style="${nameOnly?'opacity:.75;':''}cursor:${nameOnly?'default':'pointer'}"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px"><div style="font-size:15px;font-weight:700;color:var(--t1)">🧑‍🎓 ${name}${nb}</div><span style="font-size:11px;background:#d1fae5;color:#065f46;border-radius:20px;padding:2px 9px;font-weight:700">훈련 ${tot}회</span></div><div style="display:flex;flex-wrap:wrap;gap:5px;font-size:12px;color:var(--t3)"><span style="background:var(--c2);border-radius:8px;padding:2px 8px">최근: ${lat?.date||'-'}</span><span style="background:var(--c2);border-radius:8px;padding:2px 8px">목표 ${gd}/${gt} 달성</span><span style="background:var(--c2);border-radius:8px;padding:2px 8px">셔틀런 ${sh}회</span><span style="background:var(--c2);border-radius:8px;padding:2px 8px">멀리뛰기 ${lj}cm</span></div></div>`;
   }).join('')||'<div class="empty">연결된 학생이 없습니다</div>';
 };
 window.showStu=uid=>{
