@@ -529,17 +529,55 @@ function showStudent(){
   loadCfg(); buildSports(); loadAll(); renderCal(); setTd();
 }
 window.joinClass=async()=>{
-  const code=e('cc-in').value.trim().toUpperCase(); if(!code)return;
-  const err=e('cc-err');
+  const code=e('cc-in').value.trim().toUpperCase();
+  if(!code){showToast('반 코드를 입력해주세요');return;}
+  const errEl=e('cc-err');
+  errEl.style.display='none';
+  errEl.textContent='코드를 찾을 수 없습니다';
   try{
+    // 1. 반 코드로 학급 찾기
     const snap=await getDocs(query(collection(db,'classes'),where('code','==',code)));
-    if(snap.empty){err.style.display='block';return;}
+    if(snap.empty){
+      errEl.textContent='반 코드를 찾을 수 없습니다. 선생님께 다시 확인해주세요.';
+      errEl.style.display='block';
+      return;
+    }
     const cd=snap.docs[0];
-    await setDoc(doc(db,'users',CU.uid),{classCode:code},{merge:true});
-    const uids=cd.data().studentUids||[];
-    if(!uids.includes(CU.uid)) await updateDoc(doc(db,'classes',cd.id),{studentUids:[...uids,CU.uid]});
-    err.style.display='none'; showStudent();
-  }catch(ex){err.style.display='block';}
+    const classId=cd.id;
+    const classInfo=cd.data();
+
+    // 2. 학생 본인 정보에 반 코드 저장
+    await setDoc(doc(db,'users',CU.uid),{
+      classCode:code,
+      classId:classId,
+      className:classInfo.name||'',
+      name:CU.displayName||'',
+      email:CU.email||'',
+      role:'student',
+    },{merge:true});
+
+    // 3. 학급 studentUids 에 본인 추가 (이미 있으면 스킵)
+    const uids=classInfo.studentUids||[];
+    if(!uids.includes(CU.uid)){
+      try{
+        await updateDoc(doc(db,'classes',classId),{studentUids:[...uids,CU.uid]});
+      }catch(permErr){
+        // 권한 오류 시 별도 요청 컬렉션에 저장 (교사가 승인)
+        await setDoc(doc(db,'joinRequests',CU.uid+'_'+classId),{
+          uid:CU.uid, classId, code,
+          name:CU.displayName||'',
+          requestedAt:serverTimestamp(),
+        });
+      }
+    }
+    errEl.style.display='none';
+    showToast('반 입장 완료! 선생님과 연동됩니다.');
+    showStudent();
+  }catch(ex){
+    console.error('joinClass error:', ex);
+    errEl.textContent='오류 발생: '+ex.message;
+    errEl.style.display='block';
+  }
 };
 window.skipClass=()=>showStudent();
 window.switchStu=()=>showStudent();
