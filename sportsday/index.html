@@ -86,7 +86,7 @@ label{font-size:13px;color:var(--muted);display:block;margin:0 0 4px}
 /* ===== 전광판 ===== */
 .board{height:100vh;display:flex;flex-direction:column;padding:2vh 2vw;gap:1.6vh;overflow:hidden}
 .bhead{display:flex;align-items:center;justify-content:space-between;gap:2vw;background:var(--navy);color:#fff;border-radius:2.4vh;padding:1.2vh 2vw 1.2vh 1vw;box-shadow:var(--shadow);position:relative;overflow:hidden}
-.bhead::after{content:"";position:absolute;right:-6vh;top:-6vh;width:22vh;height:22vh;border-radius:50%;background:rgba(255,201,60,.18)}
+.bhead::after{content:"";position:absolute;left:-4vh;bottom:-8vh;width:20vh;height:20vh;border-radius:50%;background:rgba(255,201,60,.16)}
 .bleft{display:flex;align-items:center;gap:1.2vw;min-width:0}
 .bleft img{height:11vh;width:auto;filter:drop-shadow(0 .4vh .8vh rgba(0,0,0,.25));animation:bob 3s ease-in-out infinite}
 .btitle{font-size:clamp(22px,4.6vh,64px);font-weight:900;line-height:1.1}
@@ -117,10 +117,11 @@ label{font-size:13px;color:var(--muted);display:block;margin:0 0 4px}
 .bbox .ln:last-child{border-bottom:0}
 .bbox.live{background:#fff5f5;border-color:#f6caca}
 .bbox.live h3{color:var(--bad)}
-.mascot{display:flex;align-items:flex-end;gap:.6vw;flex:1;min-height:0}
-.mascot img{height:min(18vh,100%);width:auto;flex:none}
-.mascot .say{background:var(--accent2);color:#4a3600;border-radius:2vh;padding:1.2vh 1vw;font-weight:700;font-size:clamp(13px,2.3vh,28px);position:relative;margin-bottom:6vh}
-.mascot .say::after{content:"";position:absolute;left:-1.2vh;bottom:1.4vh;border:1vh solid transparent;border-right-color:var(--accent2)}
+.bside{overflow:hidden}
+.mascot{display:flex;align-items:center;gap:.8vw;flex:none;margin-top:auto;background:linear-gradient(135deg,#fff8de,#fff);border:1px solid #ffe7a1;border-radius:2.4vh;padding:1.2vh 1vw;box-shadow:var(--shadow)}
+.mascot img{height:15vh;width:auto;flex:none;animation:bob 3s ease-in-out infinite}
+.mascot .say{background:var(--accent2);color:#4a3600;border-radius:2vh;padding:1.2vh 1vw;font-weight:700;font-size:clamp(13px,2.3vh,28px);position:relative;line-height:1.35}
+.mascot .say::after{content:"";position:absolute;left:-1.6vh;top:50%;margin-top:-1vh;border:1vh solid transparent;border-right-color:var(--accent2);border-right-width:.9vh}
 .lock{position:absolute;inset:0;display:grid;place-items:center;text-align:center;background:rgba(243,247,254,.86);font-size:clamp(18px,3.6vh,48px);font-weight:900;color:var(--navy);pointer-events:none}
 .lock img{height:14vh;display:block;margin:0 auto 1vh}
 .ticker{background:var(--navy);color:#fff;border-radius:1.8vh;overflow:hidden;white-space:nowrap;font-size:clamp(14px,3.2vh,40px);padding:1.1vh 0}
@@ -231,6 +232,7 @@ function topText(e, n = 3) {
   const sorted = e.type === 'score' ? arr : arr.filter(x => x.r).sort((a, b) => a.r - b.r);
   return sorted.slice(0, n).map((x, i) => `${e.type === 'score' ? (i + 1) : x.r}위 ${esc(S.teams[x.id].name)}`).join(' · ') || '결과 없음';
 }
+const tLabel = t => (t.group ? t.group + ' ' : '') + t.name;
 const statusChip = s => s === 'live' ? '<span class="chip live">진행 중</span>' : s === 'done' ? '<span class="chip done">완료</span>' : '<span class="chip">대기</span>';
 
 /* ---------- 렌더링 (입력 중에는 화면을 덮어쓰지 않음) ---------- */
@@ -315,10 +317,10 @@ function drawBoard() {
   // 오른쪽
   const evs = list(S.events);
   const live = evs.filter(e => e.status === 'live');
-  const done = evs.filter(e => e.status === 'done').sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)).slice(0, 5);
-  const next = evs.filter(e => !e.status || e.status === 'ready').slice(0, 3);
+  const done = evs.filter(e => e.status === 'done').sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0))  .slice(0, 3);
+  const next = evs.filter(e => !e.status || e.status === 'ready').slice(0, 2);
   let sh = `<div class="bbox${live.length ? ' live' : ''}"><h3>🔥 지금 경기 중</h3>${live.length ? live.map(e => `<div class="ln"><b>${esc(e.name)}</b>${e.group ? ` <span class="muted">${esc(e.group)}</span>` : ''}</div>`).join('') : '<div class="muted">-</div>'}</div>`;
-  sh += `<div class="bbox"><h3>✅ 최근 결과</h3>${done.length ? done.map(e => `<div class="ln"><b>${esc(e.name)}</b><br><span class="muted">${hide ? '결과 비공개' : '🥇 ' + winners(e).map(id => esc(S.teams[id].name)).join(', ')}</span></div>`).join('') : '<div class="muted">-</div>'}</div>`;
+  sh += `<div class="bbox"><h3>✅ 최근 결과</h3>${done.length ? done.map(e => `<div class="ln"><b>${esc(e.name)}</b><br><span class="muted">${hide ? '결과 비공개' : '🥇 ' + winners(e).map(id => esc(tLabel(S.teams[id]))).join(', ')}</span></div>`).join('') : '<div class="muted">-</div>'}</div>`;
   sh += `<div class="bbox"><h3>⏭️ 다음 경기</h3>${next.length ? next.map(e => `<div class="ln">${esc(e.name)}${e.group ? ` <span class="muted">${esc(e.group)}</span>` : ''}</div>`).join('') : '<div class="muted">-</div>'}</div>`;
   const say = live.length ? `${esc(live[0].name)} 경기 중! 끝까지 힘내요!` : next.length ? `다음은 ${esc(next[0].name)}! 준비됐나요?` : (done.length ? '모두 수고했어요! 👏' : '곧 시작해요! 두근두근');
   sh += `<div class="mascot">${KSIMG()}<div class="say">${say}</div></div>`;
@@ -327,7 +329,7 @@ function drawBoard() {
   const cheers = list(S.shown).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 15);
   const parts = [];
   if (S.notice) parts.push(`📢 ${esc(S.notice)}`);
-  cheers.forEach(c => parts.push(`💬 ${c.team && S.teams[c.team] ? `[${esc(S.teams[c.team].name)}] ` : ''}${esc(c.text)}`));
+  cheers.forEach(c => parts.push(`💬 ${c.team && S.teams[c.team] ? `[${esc(tLabel(S.teams[c.team]))}] ` : ''}${esc(c.text)}`));
   if (!parts.length) parts.push('📱 학생용 화면에서 응원 메시지를 보내 주세요!');
   const txt = parts.join('　　　');
   const dur = Math.max(18, txt.length * 0.28);
@@ -360,7 +362,7 @@ function viewHTML() {
       <div style="height:10px"></div><button class="pri" data-act="sendCheer" style="width:100%">보내기</button>
       <p class="muted small">선생님이 승인한 메시지만 전광판에 나옵니다.</p></div>`;
     const cs = list(S.shown).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 30);
-    h += `<div class="card"><h3>전광판에 나온 응원</h3>${cs.map(c => `<div class="cheer" style="--c:${c.team && S.teams[c.team] ? safeColor(S.teams[c.team].color) : '#4c8dff'}">${c.team && S.teams[c.team] ? `<b>[${esc(S.teams[c.team].name)}]</b> ` : ''}${esc(c.text)}</div>`).join('') || '<div class="muted">아직 없습니다.</div>'}</div>`;
+    h += `<div class="card"><h3>전광판에 나온 응원</h3>${cs.map(c => `<div class="cheer" style="--c:${c.team && S.teams[c.team] ? safeColor(S.teams[c.team].color) : '#4c8dff'}">${c.team && S.teams[c.team] ? `<b>[${esc(tLabel(S.teams[c.team]))}]</b> ` : ''}${esc(c.text)}</div>`).join('') || '<div class="muted">아직 없습니다.</div>'}</div>`;
   }
   return h;
 }
@@ -442,7 +444,7 @@ function tabBonus() {
 }
 function tabCheer() {
   const q = Object.entries(S.queue || {}).map(([id, v]) => ({ id, ...v })).sort((a, b) => (a.ts || 0) - (b.ts || 0));
-  const tn = id => id && S.teams[id] ? `<b>[${esc(S.teams[id].name)}]</b> ` : '';
+  const tn = id => id && S.teams[id] ? `<b>[${esc(tLabel(S.teams[id]))}]</b> ` : '';
   let h = `<div class="card"><h3>⏳ 승인 대기 (${q.length})</h3>${q.map(c => `<div class="item"><div class="grow">${tn(c.team)}${esc(c.text)}</div><button class="sm ok" data-act="okCheer" data-id="${c.id}">승인</button><button class="sm bad" data-act="noCheer" data-id="${c.id}">거절</button></div>`).join('') || '<div class="muted">대기 중인 메시지가 없습니다.</div>'}</div>`;
   const s = list(S.shown).sort((a, b) => (b.ts || 0) - (a.ts || 0));
   h += `<div class="card"><h3>📺 전광판에 표시 중 (${s.length})</h3>${s.map(c => `<div class="item"><div class="grow">${tn(c.team)}${esc(c.text)}</div><button class="sm bad" data-act="delShown" data-id="${c.id}">내리기</button></div>`).join('') || '<div class="muted">없습니다.</div>'}</div>`;
