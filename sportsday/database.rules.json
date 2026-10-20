@@ -1,0 +1,41 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "secret": {
+      ".read": false,
+      ".write": false
+    },
+    "admins": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "(newData.isString() || newData.isNumber()) && newData.val() === root.child('secret').child('pin').val()"
+      }
+    },
+    "rooms": {
+      "$room": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).exists() && $room.matches(/^[A-Za-z0-9_-]{1,30}$/)",
+        "meta":   { ".read": true },
+        "teams":  { ".read": true },
+        "events": { ".read": true },
+        "bonus":  { ".read": true },
+        "notice": { ".read": true },
+        "shown":  { ".read": true },
+        "log":    { ".read": "auth != null && root.child('admins').child(auth.uid).exists()" },
+        "queue": {
+          ".read": "auth != null && root.child('admins').child(auth.uid).exists()",
+          "$id": {
+            ".write": "auth != null && !data.exists() && newData.exists()",
+            ".validate": "newData.hasChildren(['text','uid','ts']) && newData.child('uid').val() === auth.uid && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 40",
+            "text": { ".validate": true },
+            "uid": { ".validate": true },
+            "ts": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+            "team": { ".validate": "newData.isString() && newData.val().length <= 40" },
+            "$other": { ".validate": false }
+          }
+        }
+      }
+    }
+  }
+}
