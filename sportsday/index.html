@@ -369,7 +369,7 @@ function viewHTML() {
 
 /* ---------- 교사용 ---------- */
 function adminHTML() {
-  let h = `<div class="top"><div class="brand">${KSIMG()}<div><h1>교사용 관리</h1><div class="muted small">대회 코드: ${esc(ROOM)} · ${esc(S.meta.title || '체육대회')}</div></div></div><div class="rowf"><span class="dot${S.connected ? ' on' : ''}"></span><span class="small muted">${S.connected ? '연결됨' : '연결 끊김'}</span></div></div>`;
+  let h = `<div class="top"><div class="brand">${KSIMG()}<div><h1>${esc(S.meta.title || '체육대회')} ${S.isAdmin ? '<button class="sm" data-act="editTitle" title="대회 제목 수정">✏️ 제목 수정</button>' : ''}</h1><div class="muted small">교사용 관리 · 대회 코드: ${esc(ROOM)}${S.meta.sub ? ' · ' + esc(S.meta.sub) : ''}</div></div></div><div class="rowf"><span class="dot${S.connected ? ' on' : ''}"></span><span class="small muted">${S.connected ? '연결됨' : '연결 끊김'}</span></div></div>`;
   if (S.err) h += `<div class="warn">${esc(S.err)}</div>`;
   if (!S.uid) return h + `<div class="card">Firebase에 접속하는 중입니다...</div>`;
   if (!S.isAdmin) return h + `<div class="card" style="max-width:420px"><h3>🔑 관리자 PIN 입력</h3><input id="pin" type="password" placeholder="Firebase에 저장한 PIN"><div style="height:10px"></div><button class="pri" data-act="login" style="width:100%">로그인</button><p class="muted small">한 번 로그인하면 이 기기에서는 계속 유지됩니다. 심판 선생님들 폰에서도 같은 PIN으로 로그인하면 동시에 입력할 수 있습니다.</p></div>`;
@@ -547,6 +547,11 @@ const ACT = {
   async noCheer(b) { await W(remove(R(`queue/${b.dataset.id}`))); },
   async delShown(b) { await W(remove(R(`shown/${b.dataset.id}`))); },
   // 설정
+  async editTitle() {
+    const t = prompt('대회 제목을 입력하세요', S.meta.title || ''); if (t === null) return;
+    const s = prompt('부제(작은 글씨)를 입력하세요. 없으면 비워 두세요.', S.meta.sub || ''); if (s === null) return;
+    await W(update(R('meta'), { title: t.trim().slice(0, 40), sub: s.trim().slice(0, 60) })); logIt('대회 제목 수정'); toast('제목을 바꿨습니다. 전광판에 바로 반영됩니다.');
+  },
   async saveMeta() { await W(update(R('meta'), { title: val('s_title'), sub: val('s_sub') })); toast('저장했습니다.'); },
   async saveNotice() { await W(set(R('notice'), val('s_notice'))); toast('공지를 저장했습니다.'); },
   async hideOn() { if (!confirm('지금부터 전광판·학생 화면에서 점수와 결과를 숨길까요?')) return; await W(update(R('meta'), { hide: true, reveal: 0 })); logIt('점수 비공개 시작'); },
