@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important}img{max-width:100%}</style>
+<title>곡선제 전광판</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="곡선중학교 제16회 곡선제 로비·체육관 전광판과 휴대폰 조종기">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+
+<script>
+/* =====================================================================
+   ★ 여기만 고치면 전광판 내용이 바뀝니다 (아래 코드는 건드리지 마세요) ★
+   - 글자는 따옴표("") 안만 고치세요.
+   - firebase 칸을 채우면 휴대폰 조종기로 로비·체육관 화면을 함께 바꿀 수 있어요.
+     비워 두면 전광판 컴퓨터의 키보드(→ ←)로만 조종합니다.
+   ===================================================================== */
+const CONFIG = {
+  festivalName: "제16회 곡선제",
+  school: "곡선중학교",
+  date: "2026-10-30",
+  dateLabel: "2026. 10. 30. (금)",
+  slogan: "존중과 배려 속에 꿈과 끼를 펼치는 참된 곡선인",
+
+  controlPin: "1030",          // 조종기 비밀번호 (숫자 4자리 권장)
+  rotateSec: 12,               // 로비 화면이 몇 초마다 넘어갈지
+
+  times: { boothStart: "09:50", boothEnd: "12:40", gather: "13:30", showStart: "14:00", showEnd: "16:00", dayEnd: "16:30" },
+
+  schedule: [
+    { start: "09:10", end: "09:50", title: "부스 준비", place: "각 부스" },
+    { start: "09:50", end: "12:40", title: "동아리 부스 체험", place: "본관 · 체육관 · 운동장" },
+    { start: "12:40", end: "13:30", title: "점심식사", place: "급식실" },
+    { start: "13:30", end: "14:00", title: "집합 · 개회식", place: "체육관(성혜관)" },
+    { start: "14:00", end: "16:00", title: "예능 발표회", place: "체육관(성혜관)" },
+    { start: "16:00", end: "16:30", title: "정리 · 종례", place: "체육관 · 교실" }
+  ],
+
+  booths: [
+    { code: "A", name: "무좀 (무서운 좀비)", desc: "좀비와 함께 하는 방탈출", room: "1-1 교실", floor: "2층" },
+    { code: "B", name: "달고나 게임", desc: "달고나 뽑기 게임", room: "1-2 교실", floor: "2층" },
+    { code: "C", name: "공포 테마 미션", desc: "공포 테마 미션 수행하기", room: "1-3 교실", floor: "2층" },
+    { code: "D", name: "한봄고 학과 체험", desc: "특성화고 학과 이해 및 체험", room: "심리안정실", floor: "2층" },
+    { code: "E", name: "삼일고 학과 체험", desc: "특성화고 학과 이해 및 체험", room: "공예실", floor: "2층" },
+    { code: "F", name: "학부모회 분식", desc: "먹거리 부스 · 여기서도 도장을 받아요", room: "가사실 · 장영실", floor: "2층" },
+    { code: "G", name: "오락실", desc: "오목·체스와 다양한 게임", room: "2-1 교실", floor: "3층" },
+    { code: "H", name: "십자수 공방", desc: "보석십자수, 할로윈 쿠키 만들기", room: "2-2 교실", floor: "3층" },
+    { code: "I", name: "힐링독서", desc: "책갈피·책 표지 그리기·손글씨 대회", room: "2-3 교실", floor: "3층" },
+    { code: "J", name: "즐거운 수학 체험", desc: "플렉시블 퍼즐 도형 만들기", room: "범교과실", floor: "3층" },
+    { code: "K", name: "여가활동", desc: "즉석사진, 키캡 만들기(선착순), e스포츠 볼링", room: "특수학급1 교실 · 복도", floor: "3층" },
+    { code: "L", name: "보드게임반", desc: "다양한 보드게임 체험", room: "3-1 교실", floor: "4층" },
+    { code: "M", name: "미술동아리", desc: "슬라임 및 왁부볼 만들기", room: "3-2 교실", floor: "4층" },
+    { code: "N", name: "책으로 생각 키우기", desc: "책갈피 만들기, 소설제목 초성 퀴즈", room: "3-3 교실", floor: "4층" },
+    { code: "O", name: "배드민턴", desc: "배드민턴 간이 게임 체험", room: "체육관(성혜관)", floor: "체육관" }
+  ],
+
+  stamp: {
+    goal: 15,
+    rules: [
+      "먹거리 부스를 포함한 15개 부스 모두에서 도장을 받아요",
+      "도장을 모두 모으면 활동지를 학생회 추첨함에 넣어요",
+      "추첨으로 상품권을 드려요",
+      "12시 40분 이후에는 도장을 받을 수 없어요"
+    ]
+  },
+
+  // 공연 순서 (조종기에서 당일 바꿀 수도 있어요). from 에 "찬조"가 들어가면 찬조 표시
+  stage: [
+    { team: "사물놀이반", genre: "사물놀이", from: "곡선중" },
+    { team: "엘르", genre: "댄스", from: "곡선중 댄스 동아리" },
+    { team: "학생 공연팀", genre: "노래 · 랩 · 밴드 · 댄스", from: "오디션 통과팀 (확정 후 입력)" },
+    { team: "곡정고등학교 댄스부", genre: "댄스", from: "찬조 공연" },
+    { team: "성균관대학교 댄스부", genre: "댄스", from: "찬조 공연" }
+  ],
+
+  // Firebase 실시간 데이터베이스 설정 (비워 두면 키보드 조종만 가능)
+  firebase: {
+    apiKey: "",
+    authDomain: "",
+    databaseURL: "",
+    projectId: ""
+  },
+  firebasePath: "gokseonje2026/board",
+
+  credit: "© 김정환 · M.A.D.T (Moral And Digital Teacher)"
+};
+</script>
+
+<style>
+/* 레이아웃: 1920×1080 고정 캔버스를 화면 크기에 맞춰 확대·축소(전광판), 조종기는 휴대폰 세로 화면 */
+:root{
+  --bg:#0b0f24; --panel:#151a38; --panel2:#1d2350; --line:#2c3366; --ink:#f4f5ff; --muted:#a2a8d6;
+  --brand:#7b82ff; --sun:#ffc22e; --sun-ink:#241a00; --live:#ff4d3d; --ok:#3ddc97;
+  --display:"Black Han Sans","IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body)}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+
+/* ---------- 화면 선택(첫 화면) ---------- */
+.home{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.home h1{font-family:var(--display);font-weight:400;font-size:clamp(34px,8vw,52px);margin:4px 0 6px;line-height:1.1}
+.home .eyebrow{color:var(--muted);letter-spacing:.12em;font-size:13px}
+.home p{color:var(--muted);line-height:1.6;margin:0 0 18px}
+.pick{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:560px){.pick{grid-template-columns:1fr}}
+.pick a{display:block;text-decoration:none;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 16px}
+.pick a strong{display:block;font-family:var(--display);font-weight:400;font-size:26px;margin-bottom:4px}
+.pick a span{color:var(--muted);font-size:14px;line-height:1.5}
+.pick a.main{background:var(--brand);border-color:var(--brand);color:#0b0f24}
+.pick a.main span{color:#1b1f45}
+.simbox{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}
+.simbox h2{font-size:16px;margin:0 0 8px}
+.chiprow{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:999px;padding:7px 12px;font-size:14px}
+.chip[aria-pressed="true"]{background:var(--sun);color:var(--sun-ink);border-color:var(--sun)}
+.urls{margin-top:22px;font-size:14px;color:var(--muted);line-height:1.7}
+.urls code{background:var(--panel2);padding:2px 6px;border-radius:6px;color:var(--ink);word-break:break-all}
+
+/* ---------- 전광판 캔버스 ---------- */
+.screen{position:fixed;inset:0;background:var(--bg);overflow:hidden}
+.screen.nocursor{cursor:none}
+.canvas{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:center center;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.canvas .curve{position:absolute;inset:0;width:100%;height:100%;opacity:.10;pointer-events:none;color:var(--brand)}
+.topbar{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;height:110px;padding:0 64px;border-bottom:2px solid var(--line)}
+.brand{display:flex;align-items:baseline;gap:22px}
+.brand b{font-family:var(--display);font-weight:400;font-size:52px;letter-spacing:.01em}
+.brand span{font-size:28px;color:var(--muted)}
+.clock{font-family:var(--display);font-size:60px;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.clock small{font-family:var(--body);font-size:24px;color:var(--muted);margin-right:16px;vertical-align:10px}
+.body{position:relative;z-index:1;flex:1;min-height:0;padding:48px 64px;display:flex;flex-direction:column}
+.slide{flex:1;display:flex;flex-direction:column;min-height:0;animation:fadein .6s ease}
+@keyframes fadein{from{opacity:.25;transform:translateY(12px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){.slide{animation:none}}
+
+.notice{position:relative;z-index:2;height:130px;display:flex;align-items:center;gap:32px;padding:0 64px;background:var(--sun);color:var(--sun-ink)}
+.notice b{font-family:var(--display);font-weight:400;font-size:40px;background:var(--sun-ink);color:var(--sun);padding:6px 20px;border-radius:12px;flex:none}
+.notice span{font-size:54px;font-weight:700;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dotsbar{position:relative;z-index:1;display:flex;gap:12px;justify-content:center;padding:0 0 26px}
+.dotsbar i{width:16px;height:16px;border-radius:50%;background:var(--line)}
+.dotsbar i.on{background:var(--sun)}
+
+/* 큰 안내(히어로) */
+.hero{flex:1;display:flex;flex-direction:column;justify-content:center}
+.eyebrow-xl{font-size:38px;color:var(--sun);font-weight:700;letter-spacing:.06em;margin-bottom:10px}
+.hero-title{font-family:var(--display);font-weight:400;font-size:190px;line-height:1.02;letter-spacing:-.005em}
+.hero-sub{font-size:52px;color:var(--muted);margin-top:22px;line-height:1.35}
+.cd{margin-top:56px;display:flex;align-items:baseline;gap:30px}
+.cd-label{font-size:44px;color:var(--muted)}
+.cd-num{font-family:var(--display);font-size:150px;color:var(--sun);font-variant-numeric:tabular-nums;line-height:1}
+.dday{font-family:var(--display);font-size:300px;color:var(--sun);line-height:.95}
+
+/* 일정 */
+.h-slide{font-family:var(--display);font-weight:400;font-size:84px;margin:0 0 36px;line-height:1.1}
+.h-slide small{font-family:var(--body);font-size:36px;color:var(--muted);margin-left:24px;font-weight:500}
+.sched{display:grid;grid-template-columns:repeat(6,1fr);gap:20px;flex:1;align-content:center}
+.sc{background:var(--panel);border:2px solid var(--line);border-radius:26px;padding:34px 26px;display:flex;flex-direction:column;gap:14px;min-height:430px}
+.sc-time{font-family:var(--display);font-size:56px;font-variant-numeric:tabular-nums;line-height:1}
+.sc-time small{display:block;font-family:var(--body);font-size:28px;color:var(--muted);margin-top:8px}
+.sc-title{font-size:44px;font-weight:700;line-height:1.2;margin-top:auto}
+.sc-place{font-size:28px;color:var(--muted);line-height:1.35}
+.sc.now{border-color:var(--live);background:var(--panel2)}
+.sc.past{opacity:.38}
+.sc-badge{align-self:flex-start;background:var(--live);color:#fff;font-weight:700;font-size:28px;padding:4px 16px;border-radius:999px}
+
+/* 부스 */
+.booths{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;flex:1;align-content:start}
+.bc{display:grid;grid-template-columns:110px 1fr;gap:26px;align-items:center;background:var(--panel);border:2px solid var(--line);border-radius:24px;padding:26px}
+.bc-code{width:110px;height:110px;border-radius:22px;background:var(--sun);color:var(--sun-ink);display:grid;place-items:center;font-family:var(--display);font-size:66px}
+.bc-name{font-size:44px;font-weight:700;line-height:1.15}
+.bc-desc{font-size:28px;color:var(--ink);opacity:.85;margin-top:6px;line-height:1.3}
+.bc-room{font-size:28px;color:var(--sun);margin-top:8px;font-weight:700}
+.bc-body{min-width:0}
+
+/* 스탬프 */
+.stamp{display:grid;grid-template-columns:520px 1fr;gap:70px;align-items:center;flex:1}
+.stamp-big{background:var(--sun);color:var(--sun-ink);border-radius:50%;width:520px;height:520px;display:flex;flex-direction:column;align-items:center;justify-content:center;transform:rotate(-8deg);border:14px double var(--sun-ink)}
+.stamp-big b{font-family:var(--display);font-size:250px;line-height:.9}
+.stamp-big span{font-size:56px;font-weight:700}
+.stamp ol{margin:0;padding-left:70px;font-size:54px;line-height:1.45}
+.stamp li+li{margin-top:22px}
+
+/* 공연 */
+.act{flex:1;display:grid;grid-template-columns:1.55fr 1fr;gap:48px;min-height:0}
+.act-now{background:var(--panel);border:4px solid var(--live);border-radius:36px;padding:56px 64px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.tag-now{display:inline-flex;align-self:flex-start;align-items:center;gap:16px;background:var(--live);color:#fff;font-weight:700;font-size:40px;padding:8px 26px;border-radius:999px}
+.tag-now i{width:20px;height:20px;border-radius:50%;background:#fff;animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.25}}
+@media (prefers-reduced-motion: reduce){.tag-now i{animation:none}}
+.act-no{font-family:var(--display);font-size:120px;color:var(--sun);margin-top:34px;line-height:1;font-variant-numeric:tabular-nums}
+.act-no small{font-size:56px;color:var(--muted);margin-left:10px}
+.act-team{font-family:var(--display);font-weight:400;line-height:1.05;margin-top:22px;overflow-wrap:anywhere}
+.t-xl{font-size:200px}.t-l{font-size:150px}.t-m{font-size:112px}
+.act-meta{font-size:48px;color:var(--muted);margin-top:26px}
+.guest{display:inline-block;background:var(--sun);color:var(--sun-ink);font-size:36px;font-weight:700;padding:4px 18px;border-radius:12px;margin-left:16px;vertical-align:8px}
+.act-side{display:flex;flex-direction:column;gap:30px;min-width:0}
+.side{flex:1;background:var(--panel);border:2px solid var(--line);border-radius:30px;padding:40px 44px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.side-label{font-size:34px;font-weight:700;color:var(--brand);letter-spacing:.04em}
+.side-team{font-family:var(--display);font-size:84px;line-height:1.1;margin-top:14px;overflow-wrap:anywhere}
+.side-meta{font-size:34px;color:var(--muted);margin-top:12px}
+.side.standby{border-color:var(--sun);border-style:dashed}
+.side.standby .side-label{color:var(--sun)}
+.prog{display:flex;gap:10px;margin-top:30px;flex-wrap:wrap}
+.prog i{height:14px;flex:1;min-width:30px;border-radius:7px;background:var(--line)}
+.prog i.done{background:var(--brand)}
+.prog i.cur{background:var(--live)}
+
+/* 결과 */
+.result{flex:1;display:flex;flex-direction:column;gap:14px;justify-content:center;min-height:0}
+.slide .h-slide.rh{margin-bottom:18px;font-size:72px}
+.rrow{display:grid;grid-template-columns:210px 1fr;gap:40px;align-items:center;background:var(--panel);border:2px solid var(--line);border-radius:26px;padding:12px 44px;min-height:112px}
+.rrank{font-family:var(--display);font-size:76px;color:var(--sun)}
+.rteam{font-family:var(--display);font-size:80px;line-height:1.1;overflow-wrap:anywhere}
+.rrow.hide .rteam{color:var(--line);letter-spacing:.2em}
+.rrow.first{border:4px solid var(--sun);background:var(--panel2)}
+.rrow.first .rteam{font-size:96px}
+.rrow.show{animation:pop .7s ease}
+@keyframes pop{0%{transform:scale(.96);opacity:.3}100%{transform:none;opacity:1}}
+@media (prefers-reduced-motion: reduce){.rrow.show{animation:none}}
+
+.conn{position:absolute;right:22px;bottom:18px;z-index:3;width:14px;height:14px;border-radius:50%;background:var(--muted);opacity:.6}
+.conn.ok{background:var(--ok)}.conn.bad{background:var(--live);opacity:1}
+.backbtn{position:absolute;left:16px;top:16px;z-index:5;background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-size:14px;text-decoration:none;opacity:0;transition:opacity .3s}
+.screen.awake .backbtn{opacity:1}
+.help{position:absolute;inset:0;z-index:6;background:rgba(5,7,20,.86);display:flex;align-items:center;justify-content:center}
+.help-box{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:28px 34px;max-width:min(560px,92vw);font-size:16px;line-height:1.8}
+.help-box h2{margin:0 0 8px;font-size:20px}
+.help-box kbd{display:inline-block;min-width:34px;text-align:center;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:0 8px;margin-right:8px;font-family:var(--body)}
+
+/* ---------- 조종기 ---------- */
+.ctl{max-width:620px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 60px}
+.ctl-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.ctl-head h1{font-family:var(--display);font-weight:400;font-size:28px;margin:0}
+.pill{font-size:13px;font-weight:700;border-radius:999px;padding:4px 10px;background:var(--panel2);color:var(--muted);white-space:nowrap}
+.pill.ok{background:color-mix(in srgb,var(--ok) 22%,transparent);color:var(--ok)}
+.pill.bad{background:color-mix(in srgb,var(--live) 22%,transparent);color:var(--live)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:12px}
+.card h2{font-size:17px;margin:0 0 10px}
+.now-box{background:var(--panel2);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+.now-box .lbl{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.06em}
+.now-box .tm{font-size:22px;font-weight:700;margin-top:2px}
+.now-box .nx{font-size:14px;color:var(--muted);margin-top:6px}
+.row{display:grid;grid-template-columns:1fr 2fr;gap:8px}
+.btn{border:1px solid var(--line);background:var(--panel2);color:var(--ink);border-radius:12px;padding:12px;font-weight:700;font-size:15px}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#0b0f24}
+.btn.big{padding:18px 12px;font-size:19px}
+.btn.warn{background:var(--sun);border-color:var(--sun);color:var(--sun-ink)}
+.btn.ghost{background:none}
+.btn.full{width:100%;margin-top:8px}
+.seg{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.seg .btn[aria-pressed="true"]{background:var(--sun);color:var(--sun-ink);border-color:var(--sun)}
+.hint{font-size:13px;color:var(--muted);margin:8px 0 0;line-height:1.55}
+.ctl label{display:block;font-size:13px;color:var(--muted);margin:8px 0 4px}
+.ctl input,.ctl textarea{width:100%;font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.ctl textarea{min-height:92px;resize:vertical;line-height:1.5}
+.ctl textarea.tall{min-height:180px;font-size:15px}
+.rgrid{display:grid;grid-template-columns:52px 1fr;gap:6px 8px;align-items:center}
+.rgrid span{font-weight:700;color:var(--sun)}
+.gate{max-width:360px;margin:12vh auto 0;text-align:center}
+.gate input{text-align:center;font-size:28px;letter-spacing:.3em;margin:14px 0 10px}
+.err{color:var(--live);font-size:14px;min-height:20px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);font-weight:700;padding:10px 18px;border-radius:999px;font-size:14px;z-index:20;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.on{opacity:1}
+.ctl code{word-break:break-all}
+.hint{overflow-wrap:anywhere}
+.foot{text-align:center;color:var(--muted);font-size:12px;margin-top:26px}
+</style>
+
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  "use strict";
+  const C = CONFIG;
+  const app = document.getElementById("app");
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const params = new URLSearchParams(location.search);
+  const pad = n => String(n).padStart(2, "0");
+  const T = t => { const p = t.split(":").map(Number); return p[0] * 3600 + p[1] * 60; };
+
+  /* ---------------- 시간 ---------------- */
+  let sim = null;
+  function setSim(str){
+    if (!str) { sim = null; return; }
+    const m = String(str).match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})$/);
+    sim = m ? { date: m[1], secs: (+m[2]) * 3600 + (+m[3]) * 60, t0: Date.now() } : null;
+  }
+  setSim(params.get("sim"));
+  function now(){
+    if (sim) return { date: sim.date, secs: sim.secs + (Date.now() - sim.t0) / 1000 };
+    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).formatToParts(new Date());
+    const g = t => parts.find(p => p.type === t).value;
+    let h = Number(g("hour")); if (h === 24) h = 0;
+    return { date: g("year") + "-" + g("month") + "-" + g("day"), secs: h * 3600 + Number(g("minute")) * 60 + Number(g("second")) };
+  }
+  function phase(n){
+    if (n.date < C.date) return "before";
+    if (n.date > C.date) return "after";
+    const s = n.secs, t = C.times;
+    if (s < T(t.boothStart)) return "prep";
+    if (s < T(t.boothEnd)) return "booth";
+    if (s < T(t.gather)) return "lunch";
+    if (s < T(t.showStart)) return "opening";
+    if (s < T(t.showEnd)) return "show";
+    if (s < T(t.dayEnd)) return "closing";
+    return "after";
+  }
+  function dday(n){
+    const a = C.date.split("-").map(Number), b = n.date.split("-").map(Number);
+    return Math.round((Date.UTC(a[0], a[1]-1, a[2]) - Date.UTC(b[0], b[1]-1, b[2])) / 86400000);
+  }
+  function fmtLeft(sec){
+    if (sec <= 0) return "곧 시작";
+    sec = Math.floor(sec);
+    const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    return h > 0 ? h + "시간 " + pad(m) + "분" : pad(m) + ":" + pad(s);
+  }
+
+  /* ---------------- 상태 공유 ---------------- */
+  const KEY = "gsb-state-v1";
+  const DEF = () => ({ actIndex: -1, gymMode: "auto", results: ["", "", "", "", ""], reveal: 0, notice: { on: false, text: "" }, lineup: null, updatedAt: 0 });
+  const Sync = {
+    state: DEF(), subs: [], connSubs: [], mode: "local", online: false, ref: null, bc: null,
+    norm(s){
+      const d = Object.assign(DEF(), s || {});
+      d.notice = Object.assign({ on: false, text: "" }, d.notice || {});
+      let r = d.results; if (!Array.isArray(r)) r = Object.keys(r || {}).sort().map(k => r[k]);
+      r = r.slice(0, 5).map(x => x || ""); while (r.length < 5) r.push(""); d.results = r;
+      if (d.lineup && !Array.isArray(d.lineup)) d.lineup = Object.keys(d.lineup).sort((a, b) => a - b).map(k => d.lineup[k]);
+      d.actIndex = Number.isFinite(+d.actIndex) ? +d.actIndex : -1;
+      d.reveal = Math.max(0, Math.min(5, +d.reveal || 0));
+      return d;
+    },
+    apply(s){ this.state = this.norm(s); this.subs.forEach(f => f(this.state)); },
+    conn(){ this.connSubs.forEach(f => f(this.mode, this.online)); },
+    set(patch){
+      patch.updatedAt = Date.now();
+      if (this.mode === "firebase" && this.ref) {
+        this.ref.update(patch).catch(() => toast("저장 실패: 인터넷 연결을 확인하세요"));
+        this.apply(Object.assign({}, this.state, patch));
+      } else {
+        const s = Object.assign({}, this.state, patch);
+        try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e){}
+        try { this.bc && this.bc.postMessage(s); } catch(e){}
+        this.apply(s);
+      }
+    },
+    async init(){
+      try { this.bc = new BroadcastChannel("gsb"); this.bc.onmessage = e => { if (this.mode === "local") this.apply(e.data); }; } catch(e){}
+      window.addEventListener("storage", e => { if (e.key === KEY && this.mode === "local") { try { this.apply(JSON.parse(e.newValue)); } catch(_){} } });
+      let saved = null; try { saved = JSON.parse(localStorage.getItem(KEY) || "null"); } catch(e){}
+      this.apply(saved);
+      const f = C.firebase || {};
+      if (f.apiKey && f.databaseURL) {
+        try {
+          await loadScripts(["firebase-app-compat.js", "firebase-database-compat.js"]);
+          if (!window.firebase.apps.length) window.firebase.initializeApp(f);
+          const db = window.firebase.database();
+          this.ref = db.ref(C.firebasePath);
+          this.mode = "firebase";
+          this.ref.on("value", snap => this.apply(snap.val()));
+          db.ref(".info/connected").on("value", s => { this.online = !!s.val(); this.conn(); });
+        } catch(e) { console.warn("Firebase 연결 실패, 이 컴퓨터 안에서만 동작합니다", e); this.mode = "local"; }
+      }
+      this.conn();
+    }
+  };
+  function loadOne(src){
+    return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  }
+  async function loadScripts(files){
+    const bases = ["https://cdn.jsdelivr.net/npm/firebase@10.12.2/", "https://www.gstatic.com/firebasejs/10.12.2/"];
+    for (const f of files) {
+      let ok = false;
+      for (const b of bases) { try { await loadOne(b + f); ok = true; break; } catch(e){} }
+      if (!ok) throw new Error("load " + f);
+    }
+  }
+  const lineup = () => (Array.isArray(Sync.state.lineup) && Sync.state.lineup.length ? Sync.state.lineup : C.stage);
+  const isGuest = a => /찬조/.test((a && a.from) || "");
+
+  let toastTimer = null;
+  function toast(msg){ const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("on"), 1800); }
+
+  /* ---------------- 화면 조각 ---------------- */
+  const CURVE = '<svg class="curve" viewBox="0 0 1920 1080" preserveAspectRatio="none" aria-hidden="true"><path d="M-40 860 C 420 420, 820 1080, 1240 560 S 1800 260, 1980 420" fill="none" stroke="currentColor" stroke-width="40" stroke-linecap="round"/><path d="M-40 960 C 460 540, 860 1120, 1280 680 S 1820 380, 1980 520" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round"/></svg>';
+
+  function hero(eyebrow, title, sub, target, label){
+    return '<div class="hero">' + (eyebrow ? '<div class="eyebrow-xl">' + esc(eyebrow) + '</div>' : '') +
+      '<div class="hero-title">' + esc(title) + '</div>' +
+      (sub ? '<div class="hero-sub">' + esc(sub) + '</div>' : '') +
+      (target ? '<div class="cd"><span class="cd-label">' + esc(label) + '</span><span class="cd-num" data-cd="' + esc(target) + '">--:--</span></div>' : '') + '</div>';
+  }
+  function ddayHTML(n){
+    const d = dday(n);
+    return '<div class="hero"><div class="eyebrow-xl">' + esc(C.dateLabel) + '</div><div class="dday">D-' + d + '</div>' +
+      '<div class="hero-sub">오전 동아리 부스 체험 · 오후 예능 발표회<br>' + esc(C.slogan) + '</div></div>';
+  }
+  function schedHTML(n){
+    const today = n.date === C.date, after = n.date > C.date;
+    return '<h2 class="h-slide">오늘의 일정<small>' + esc(C.dateLabel) + '</small></h2><div class="sched">' +
+      C.schedule.map(s => {
+        let cls = "";
+        if (after || (today && n.secs >= T(s.end))) cls = "past";
+        else if (today && n.secs >= T(s.start)) cls = "now";
+        return '<div class="sc ' + cls + '">' + (cls === "now" ? '<span class="sc-badge">지금</span>' : '') +
+          '<div class="sc-time">' + esc(s.start) + '<small>~ ' + esc(s.end) + '</small></div>' +
+          '<div class="sc-title">' + esc(s.title) + '</div><div class="sc-place">' + esc(s.place) + '</div></div>';
+      }).join("") + '</div>';
+  }
+  function floorSlides(){
+    const groups = [["2층"], ["3층"], ["4층", "체육관", "운동장"]];
+    return groups.map(g => {
+      const list = C.booths.filter(b => g.includes(b.floor));
+      if (!list.length) return null;
+      const title = g.filter(f => list.some(b => b.floor === f)).join(" · ");
+      return { id: "floor-" + title, html: '<h2 class="h-slide">' + esc(title) + ' 부스<small>' + list.length + '곳 · 도장 받고 체험해요</small></h2><div class="booths">' +
+        list.map(b => '<div class="bc"><div class="bc-code">' + esc(b.code) + '</div><div class="bc-body"><div class="bc-name">' + esc(b.name) + '</div><div class="bc-desc">' + esc(b.desc) + '</div><div class="bc-room">' + esc(b.room) + '</div></div></div>').join("") + '</div>' };
+    }).filter(Boolean);
+  }
+  function stampHTML(){
+    return '<h2 class="h-slide">스탬프 미션</h2><div class="stamp"><div class="stamp-big"><b>' + esc(C.stamp.goal) + '</b><span>개 모으기</span></div><ol>' +
+      C.stamp.rules.map(r => '<li>' + esc(r) + '</li>').join("") + '</ol></div>';
+  }
+  function teamClass(name){ const l = [...String(name)].length; return l <= 6 ? "t-xl" : l <= 10 ? "t-l" : "t-m"; }
+  function progHTML(i, L){
+    let h = '<div class="prog" aria-hidden="true">';
+    for (let k = 0; k < L; k++) h += '<i class="' + (k < i ? "done" : k === i ? "cur" : "") + '"></i>';
+    return h + '</div>';
+  }
+  function actHTML(S){
+    const L = lineup(), i = S.actIndex, a = L[i], nx = L[i + 1], sb = L[i + 2];
+    return '<div class="act"><div class="act-now"><span class="tag-now"><i></i>NOW · 지금 공연</span>' +
+      '<div class="act-no">' + pad(i + 1) + '<small>/ ' + pad(L.length) + '</small></div>' +
+      '<div class="act-team ' + teamClass(a.team) + '">' + esc(a.team) + (isGuest(a) ? '<span class="guest">찬조</span>' : '') + '</div>' +
+      '<div class="act-meta">' + esc(a.genre) + (a.from ? ' · ' + esc(a.from) : '') + '</div>' + progHTML(i, L.length) + '</div>' +
+      '<div class="act-side">' +
+        '<div class="side"><div class="side-label">NEXT · 다음 공연</div>' + (nx ? '<div class="side-team">' + esc(nx.team) + '</div><div class="side-meta">' + esc(nx.genre) + '</div>' : '<div class="side-team">마지막 무대</div><div class="side-meta">곧 시상식이 이어집니다</div>') + '</div>' +
+        (sb ? '<div class="side standby"><div class="side-label">대기 호출</div><div class="side-team">' + esc(sb.team) + '</div><div class="side-meta">무대 뒤 대기석으로 와 주세요</div></div>' : '') +
+      '</div></div>';
+  }
+  function breakHTML(S){
+    const L = lineup(), nx = L[Math.max(0, S.actIndex + 1)];
+    return hero("INTERMISSION", "잠시 쉬어 갑니다", nx && S.actIndex + 1 < L.length ? "다음 무대 · " + nx.team : "자리를 지켜 주세요", null, null);
+  }
+  function resultHTML(S){
+    let h = '<h2 class="h-slide rh">예능 발표회 수상팀<small>준비도 40 · 호응도 40 · 참여도 20</small></h2><div class="result">';
+    for (let k = 1; k <= 5; k++) {
+      const shown = k >= 6 - S.reveal;
+      const name = S.results[k - 1] || "-";
+      h += '<div class="rrow ' + (k === 1 ? "first " : "") + (shown ? "show" : "hide") + '"><div class="rrank">' + k + '등</div><div class="rteam">' + (shown ? esc(name) : "? ? ?") + '</div></div>';
+    }
+    return h + '</div>';
+  }
+  function endHTML(){ return hero("THANK YOU", "모든 무대가 끝났어요", "결과 발표를 기다려 주세요", null, null); }
+  function thanksHTML(){ return hero(C.festivalName, "함께해서 고마워요", C.slogan, null, null); }
+  function liveHTML(S, ph){
+    const L = lineup();
+    if (S.actIndex >= 0 && S.actIndex < L.length) {
+      const a = L[S.actIndex], nx = L[S.actIndex + 1];
+      return '<div class="hero"><div class="eyebrow-xl">● LIVE · 지금 체육관(성혜관)에서</div><div class="hero-title ' + teamClass(a.team) + '">' + esc(a.team) + '</div>' +
+        '<div class="hero-sub">' + esc(a.genre) + (nx ? ' · 다음 무대 ' + esc(nx.team) : ' · 마지막 무대') + '</div></div>';
+    }
+    if (S.actIndex >= L.length) return endHTML();
+    if (ph === "opening") return hero("체육관(성혜관)", "개회식 진행 중", "곧 예능 발표회가 시작됩니다", C.times.showStart, "공연 시작까지");
+    return hero("체육관(성혜관)", "예능 발표회", "곧 첫 무대가 시작됩니다", null, null);
+  }
+
+  function lobbySlides(n, ph, S){
+    const sl = [];
+    if (S.gymMode === "result" && S.reveal > 0) sl.push({ id: "result", html: resultHTML(S) });
+    const fl = floorSlides(), sch = { id: "sched", html: schedHTML(n) }, st = { id: "stamp", html: stampHTML() };
+    switch (ph) {
+      case "before": sl.push({ id: "dday", html: ddayHTML(n) }, sch, ...fl, st); break;
+      case "prep": sl.push({ id: "prep", html: hero("WELCOME", "오늘은 곡선제!", "9시 50분부터 동아리 부스 체험이 시작돼요", C.times.boothStart, "부스 체험 시작까지") }, sch, ...fl, st); break;
+      case "booth": sl.push({ id: "booth", html: hero("동아리 부스 체험 중", "도장 모으러 가요", "본관 2·3·4층과 체육관에서 15개 도장을 모아 보세요", C.times.boothEnd, "도장 마감까지") }, ...fl, st); break;
+      case "lunch": sl.push({ id: "lunch", html: hero("LUNCH", "점심시간", "1시 30분까지 체육관(성혜관)으로 모여 주세요", C.times.gather, "체육관 집합까지") }, sch); break;
+      case "opening": case "show": case "closing": sl.push({ id: "live", html: liveHTML(S, ph) }, sch); break;
+      default: sl.push({ id: "thanks", html: thanksHTML() });
+    }
+    return sl;
+  }
+  function gymSlide(n, ph, S){
+    const L = lineup();
+    if (S.gymMode === "result") return { id: "result", html: resultHTML(S) };
+    if (S.gymMode === "break") return { id: "break", html: breakHTML(S) };
+    if (S.gymMode !== "welcome" && S.actIndex >= 0) return S.actIndex >= L.length ? { id: "end", html: endHTML() } : { id: "act", html: actHTML(S) };
+    if (ph === "opening") return { id: "opening", html: hero("OPENING", "개회식", "곧 예능 발표회가 시작됩니다", C.times.showStart, "공연 시작까지") };
+    if (ph === "show") return { id: "soon", html: hero("예능 발표회", "곧 첫 무대!", L[0] ? "첫 무대 · " + L[0].team : "", null, null) };
+    if (ph === "closing" || ph === "after") return { id: "thanks", html: thanksHTML() };
+    if (ph === "before") return { id: "dday", html: ddayHTML(n) };
+    return { id: "welcome", html: hero("예능 발표회 · 체육관(성혜관)", C.festivalName, "1시 30분 집합 · 2시 첫 무대", ph === "lunch" ? C.times.gather : C.times.showStart, ph === "lunch" ? "체육관 집합까지" : "공연 시작까지") };
+  }
+
+  /* ---------------- 전광판 ---------------- */
+  let stopScreen = null;
+  function renderScreen(kind){
+    const viaQuery = !!params.get("screen");
+    app.innerHTML = '<div class="screen" id="scr"><div class="canvas" id="cv">' + CURVE +
+      '<div class="topbar"><div class="brand"><b>' + esc(C.festivalName) + '</b><span>' + esc(C.school) + (kind === "gym" ? " · 체육관" : " · 로비") + '</span></div><div class="clock" id="clk"></div></div>' +
+      '<div class="body" id="bd"></div><div class="dotsbar" id="dots"></div><div id="nt"></div><span class="conn" id="conn" title="연결 상태"></span></div>' +
+      (viaQuery ? '' : '<a class="backbtn" href="#home">← 화면 선택</a>') + '<div class="help" id="help" hidden></div></div>';
+    const scr = document.getElementById("scr"), cv = document.getElementById("cv"), bd = document.getElementById("bd"), dots = document.getElementById("dots"), nt = document.getElementById("nt"), clk = document.getElementById("clk"), conn = document.getElementById("conn"), help = document.getElementById("help");
+    function fit(){ const s = Math.min(innerWidth / 1920, innerHeight / 1080); cv.style.transform = "translate(-50%,-50%) scale(" + s + ")"; }
+    fit(); addEventListener("resize", fit);
+    const t0 = Date.now(); let lastKey = "", lastNotice = "";
+    function tick(force){
+      const n = now(), ph = phase(n), S = Sync.state;
+      let slide, list = null, idx = 0;
+      if (kind === "lobby") {
+        list = lobbySlides(n, ph, S);
+        idx = Math.floor((Date.now() - t0) / 1000 / Math.max(4, C.rotateSec)) % list.length;
+        slide = list[idx];
+      } else slide = gymSlide(n, ph, S);
+      const key = slide.id + "|" + S.updatedAt + "|" + (slide.id === "sched" ? Math.floor(n.secs / 60) : "");
+      if (force || key !== lastKey) {
+        bd.innerHTML = '<div class="slide">' + slide.html + '</div>';
+        lastKey = key;
+      }
+      dots.innerHTML = list && list.length > 1 ? list.map((_, k) => '<i class="' + (k === idx ? "on" : "") + '"></i>').join("") : "";
+      const nk = S.notice.on && S.notice.text ? S.notice.text : "";
+      if (nk !== lastNotice) { nt.innerHTML = nk ? '<div class="notice"><b>안내</b><span>' + esc(nk) + '</span></div>' : ""; lastNotice = nk; }
+      const h = Math.floor(n.secs / 3600), m = Math.floor(n.secs % 3600 / 60);
+      clk.innerHTML = (sim ? '<small>미리보기</small>' : '') + pad(h) + ":" + pad(m);
+      bd.querySelectorAll("[data-cd]").forEach(el => { el.textContent = n.date === C.date ? fmtLeft(T(el.dataset.cd) - n.secs) : "--:--"; });
+    }
+    const timer = setInterval(() => tick(false), 1000);
+    const unsub = s => tick(false); Sync.subs.push(unsub);
+    const onConn = (mode, online) => { conn.className = "conn" + (mode === "firebase" ? (online ? " ok" : " bad") : ""); conn.title = mode === "firebase" ? (online ? "조종기 연결됨" : "인터넷 끊김") : "키보드 조종 모드"; };
+    Sync.connSubs.push(onConn); onConn(Sync.mode, Sync.online);
+    tick(true);
+
+    let idleT = null;
+    const wake = () => { scr.classList.add("awake"); scr.classList.remove("nocursor"); clearTimeout(idleT); idleT = setTimeout(() => { scr.classList.remove("awake"); scr.classList.add("nocursor"); }, 2500); };
+    scr.addEventListener("mousemove", wake); wake();
+    scr.addEventListener("dblclick", () => { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); } catch(e){} });
+    let lock = null;
+    const getLock = async () => { try { lock = await navigator.wakeLock.request("screen"); } catch(e){} };
+    getLock(); document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") getLock(); });
+
+    function showHelp(on){
+      help.hidden = !on;
+      if (on) help.innerHTML = '<div class="help-box"><h2>키보드 조종 (체육관 컴퓨터)</h2>' +
+        '<div><kbd>→</kbd><kbd>Space</kbd>다음 팀 (결과 화면에선 한 단계 공개)</div>' +
+        '<div><kbd>←</kbd>이전 팀</div><div><kbd>B</kbd>쉬는 시간 켜기/끄기</div>' +
+        '<div><kbd>R</kbd>결과 발표 화면 켜기/끄기</div><div><kbd>A</kbd>자동(시간표대로)</div>' +
+        '<div><kbd>N</kbd>공지 내리기</div><div><kbd>F</kbd>전체 화면 (더블클릭도 가능)</div>' +
+        '<div><kbd>H</kbd>이 도움말 닫기</div><p style="color:var(--muted);margin:10px 0 0">프레젠터 리모컨의 다음/이전 버튼도 그대로 쓸 수 있어요.</p></div>';
+    }
+    function onKey(e){
+      if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+      const S = Sync.state, L = lineup().length, k = e.key;
+      if (k === "ArrowRight" || k === " " || k === "PageDown") {
+        e.preventDefault();
+        if (S.gymMode === "result") Sync.set({ reveal: Math.min(5, S.reveal + 1) });
+        else Sync.set({ actIndex: Math.min(L, S.actIndex + 1), gymMode: "auto" });
+      } else if (k === "ArrowLeft" || k === "PageUp") {
+        e.preventDefault();
+        if (S.gymMode === "result") Sync.set({ reveal: Math.max(0, S.reveal - 1) });
+        else Sync.set({ actIndex: Math.max(-1, S.actIndex - 1), gymMode: "auto" });
+      } else if (k === "b" || k === "B") Sync.set({ gymMode: S.gymMode === "break" ? "auto" : "break" });
+      else if (k === "r" || k === "R") Sync.set(S.gymMode === "result" ? { gymMode: "auto" } : { gymMode: "result", reveal: 0 });
+      else if (k === "a" || k === "A") Sync.set({ gymMode: "auto" });
+      else if (k === "n" || k === "N") Sync.set({ notice: { on: false, text: S.notice.text } });
+      else if (k === "f" || k === "F") { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); } catch(_){} }
+      else if (k === "h" || k === "H" || k === "?") showHelp(help.hidden);
+      else if (k === "Escape") showHelp(false);
+    }
+    document.addEventListener("keydown", onKey);
+    stopScreen = () => { clearInterval(timer); removeEventListener("resize", fit); document.removeEventListener("keydown", onKey); Sync.subs = Sync.subs.filter(f => f !== unsub); Sync.connSubs = Sync.connSubs.filter(f => f !== onConn); try { lock && lock.release(); } catch(e){} };
+  }
+
+  /* ---------------- 조종기 ---------------- */
+  function renderControl(){
+    let authed = false; try { authed = sessionStorage.getItem("gsb-pin") === C.controlPin; } catch(e){}
+    if (!authed) {
+      app.innerHTML = '<div class="ctl"><div class="gate"><h1 style="font-family:var(--display);font-weight:400;font-size:34px;margin:0">곡선제 조종기</h1>' +
+        '<p class="hint">담당 선생님 비밀번호를 입력하세요</p><form id="gf"><input id="pin" type="password" inputmode="numeric" autocomplete="off" aria-label="비밀번호"><div class="err" id="perr"></div><button class="btn primary full big" type="submit">들어가기</button></form>' +
+        (params.get("screen") ? '' : '<p class="hint"><a href="#home" style="color:var(--muted)">← 화면 선택</a></p>') + '</div></div>';
+      document.getElementById("gf").addEventListener("submit", e => {
+        e.preventDefault();
+        if (document.getElementById("pin").value === C.controlPin) { try { sessionStorage.setItem("gsb-pin", C.controlPin); } catch(_){} renderControl(); }
+        else document.getElementById("perr").textContent = "비밀번호가 맞지 않아요";
+      });
+      return;
+    }
+    const presets = ["곧 예능 발표회가 시작됩니다. 체육관으로 모여 주세요", "통로와 무대 앞을 비워 주세요", "공연 중에는 자리를 지켜 주세요", "부스 체험은 12시 40분까지입니다", "행사장 밖으로 나가지 마세요"];
+    const base = location.origin + location.pathname;
+    app.innerHTML = '<div class="ctl">' +
+      '<div class="ctl-head"><h1>곡선제 조종기</h1><span class="pill" id="cconn">확인 중</span></div>' +
+      '<section class="card"><h2>지금 무대</h2><div class="now-box"><div class="lbl" id="cLbl"></div><div class="tm" id="cNow"></div><div class="nx" id="cNext"></div></div>' +
+        '<div class="row"><button class="btn big" id="bPrev" type="button">◀ 이전</button><button class="btn primary big" id="bNext" type="button">다음 팀 ▶</button></div>' +
+        '<button class="btn ghost full" id="bReset" type="button">공연 시작 전으로 되돌리기</button></section>' +
+      '<section class="card"><h2>체육관 화면</h2><div class="seg" id="modes">' +
+        '<button class="btn" type="button" data-mode="auto">자동</button><button class="btn" type="button" data-mode="break">쉬는 시간</button>' +
+        '<button class="btn" type="button" data-mode="welcome">환영 화면</button><button class="btn" type="button" data-mode="result">결과 발표</button></div>' +
+        '<p class="hint">자동: 시간표와 공연 순서에 맞춰 바뀌어요. 로비 화면은 항상 시간표대로 넘어가고, 공연 중에는 지금 무대를 함께 보여 줘요.</p></section>' +
+      '<section class="card"><h2>공지 띄우기 <span class="pill" id="nState"></span></h2><div class="chiprow" id="nPresets">' +
+        presets.map((p, i) => '<button class="chip" type="button" data-p="' + i + '">' + esc(p) + '</button>').join("") + '</div>' +
+        '<label for="nText">로비·체육관 화면 아래에 크게 뜹니다</label><textarea id="nText" maxlength="60"></textarea>' +
+        '<div class="row" style="margin-top:8px"><button class="btn" id="nOff" type="button">내리기</button><button class="btn warn" id="nOn" type="button">화면에 띄우기</button></div></section>' +
+      '<section class="card"><h2>결과 발표 <span class="pill" id="rState"></span></h2><div class="rgrid">' +
+        [1,2,3,4,5].map(k => '<span>' + k + '등</span><input id="r' + k + '" aria-label="' + k + '등 팀 이름" autocomplete="off">').join("") + '</div>' +
+        '<button class="btn full" id="rSave" type="button">수상팀 저장</button>' +
+        '<div class="row" style="margin-top:8px"><button class="btn" id="rHide" type="button">모두 가리기</button><button class="btn warn" id="rNext" type="button">5등부터 한 단계 공개</button></div>' +
+        '<p class="hint">"결과 발표" 화면으로 바꾼 뒤 공개 버튼을 누를 때마다 5등 → 1등 순으로 나타나요. 공개가 시작되면 로비 화면에도 결과가 떠요.</p></section>' +
+      '<section class="card"><h2>공연 순서 고치기</h2><label for="lu">한 줄에 한 팀 · 팀 이름 / 장르 / 소개 (찬조는 소개에 "찬조")</label><textarea class="tall" id="lu"></textarea>' +
+        '<div class="row" style="margin-top:8px"><button class="btn" id="luDef" type="button">원래대로</button><button class="btn primary" id="luSave" type="button">순서 적용</button></div></section>' +
+      '<section class="card"><h2>전광판 주소</h2><p class="hint">로비: <code>' + esc(base) + '?screen=lobby</code><br>체육관: <code>' + esc(base) + '?screen=gym</code><br>조종기: <code>' + esc(base) + '?screen=control</code></p></section>' +
+      '<div class="foot">' + esc(C.credit) + '</div></div>';
+
+    const $ = id => document.getElementById(id);
+    const dirty = {};
+    ["nText", "lu", "r1", "r2", "r3", "r4", "r5"].forEach(id => $(id).addEventListener("input", () => { dirty[id] = true; }));
+    const lineText = L => L.map(a => [a.team, a.genre, a.from].map(x => x || "").join(" / ")).join("\n");
+    function fill(S){
+      const L = lineup(), i = S.actIndex;
+      $("cLbl").textContent = i < 0 ? "공연 시작 전" : i >= L.length ? "모든 공연 끝" : "NOW · " + (i + 1) + " / " + L.length;
+      $("cNow").textContent = i < 0 ? "첫 무대: " + (L[0] ? L[0].team : "-") : i >= L.length ? "결과 발표를 준비하세요" : L[i].team;
+      $("cNext").textContent = i + 1 < L.length ? "다음: " + L[i + 1].team + (L[i + 2] ? " · 대기: " + L[i + 2].team : "") : "";
+      document.querySelectorAll("#modes .btn").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === S.gymMode)));
+      $("nState").textContent = S.notice.on && S.notice.text ? "화면에 떠 있음" : "꺼짐";
+      $("nState").className = "pill" + (S.notice.on && S.notice.text ? " bad" : "");
+      $("rState").textContent = "공개 " + S.reveal + " / 5";
+      const act = document.activeElement && document.activeElement.id;
+      if (!dirty.nText && act !== "nText") $("nText").value = S.notice.text || "";
+      for (let k = 1; k <= 5; k++) if (!dirty["r" + k] && act !== "r" + k) $("r" + k).value = S.results[k - 1] || "";
+      if (!dirty.lu && act !== "lu") $("lu").value = lineText(L);
+    }
+    Sync.subs.push(fill); fill(Sync.state);
+    const onConn = (mode, online) => { const p = $("cconn"); if (!p) return;
+      if (mode === "firebase") { p.textContent = online ? "전광판과 연결됨" : "인터넷 끊김"; p.className = "pill " + (online ? "ok" : "bad"); }
+      else { p.textContent = "이 컴퓨터에서만 연결"; p.className = "pill"; } };
+    Sync.connSubs.push(onConn); onConn(Sync.mode, Sync.online);
+
+    $("bNext").onclick = () => { const S = Sync.state; Sync.set({ actIndex: Math.min(lineup().length, S.actIndex + 1), gymMode: "auto" }); };
+    $("bPrev").onclick = () => { const S = Sync.state; Sync.set({ actIndex: Math.max(-1, S.actIndex - 1), gymMode: "auto" }); };
+    let resetArm = 0;
+    $("bReset").onclick = () => { if (Date.now() - resetArm < 3000) { Sync.set({ actIndex: -1, gymMode: "auto" }); toast("공연 시작 전으로 되돌렸어요"); resetArm = 0; $("bReset").textContent = "공연 시작 전으로 되돌리기"; } else { resetArm = Date.now(); $("bReset").textContent = "한 번 더 누르면 되돌립니다"; setTimeout(() => { $("bReset").textContent = "공연 시작 전으로 되돌리기"; }, 3000); } };
+    $("modes").onclick = e => { const b = e.target.closest("[data-mode]"); if (!b) return; const m = b.dataset.mode; Sync.set(m === "result" && Sync.state.gymMode !== "result" ? { gymMode: m, reveal: 0 } : { gymMode: m }); toast("체육관 화면: " + b.textContent); };
+    $("nPresets").onclick = e => { const b = e.target.closest("[data-p]"); if (!b) return; $("nText").value = presets[+b.dataset.p]; dirty.nText = true; };
+    $("nOn").onclick = () => { const t = $("nText").value.trim(); if (!t) { toast("공지 내용을 입력하세요"); return; } Sync.set({ notice: { on: true, text: t } }); dirty.nText = false; toast("공지를 띄웠어요"); };
+    $("nOff").onclick = () => { Sync.set({ notice: { on: false, text: Sync.state.notice.text || "" } }); toast("공지를 내렸어요"); };
+    $("rSave").onclick = () => { const r = [1,2,3,4,5].map(k => $("r" + k).value.trim()); Sync.set({ results: r }); [1,2,3,4,5].forEach(k => dirty["r" + k] = false); toast("수상팀을 저장했어요"); };
+    $("rNext").onclick = () => { const S = Sync.state; if (S.gymMode !== "result") { Sync.set({ gymMode: "result", reveal: 1 }); } else Sync.set({ reveal: Math.min(5, S.reveal + 1) }); };
+    $("rHide").onclick = () => Sync.set({ reveal: 0 });
+    $("luSave").onclick = () => {
+      const L = $("lu").value.split("\n").map(s => s.trim()).filter(Boolean).map(line => { const p = line.split("/").map(x => x.trim()); return { team: p[0] || "", genre: p[1] || "", from: p.slice(2).join(" / ") }; }).filter(a => a.team);
+      if (!L.length) { toast("한 팀 이상 입력하세요"); return; }
+      Sync.set({ lineup: L, actIndex: Math.min(Sync.state.actIndex, L.length) }); dirty.lu = false; toast(L.length + "팀 순서를 적용했어요");
+    };
+    $("luDef").onclick = () => { Sync.set({ lineup: null }); dirty.lu = false; $("lu").value = lineText(C.stage); toast("원래 순서로 되돌렸어요"); };
+    stopScreen = () => { Sync.subs = Sync.subs.filter(f => f !== fill); Sync.connSubs = Sync.connSubs.filter(f => f !== onConn); };
+  }
+
+  /* ---------------- 화면 선택 ---------------- */
+  function renderHome(){
+    const sims = [["", "실제 시간"], ["2026-10-29T15:00", "전날"], ["2026-10-30T09:20", "아침"], ["2026-10-30T10:30", "부스 체험"], ["2026-10-30T13:05", "점심"], ["2026-10-30T13:45", "개회식"], ["2026-10-30T14:30", "공연 중"]];
+    const cur = sim ? sims.find(s => s[0] && s[0].endsWith(pad(Math.floor(sim.secs / 3600)) + ":" + pad(Math.floor(sim.secs % 3600 / 60)))) : null;
+    app.innerHTML = '<div class="home"><div class="eyebrow">' + esc(C.school) + ' · ' + esc(C.dateLabel) + '</div><h1>' + esc(C.festivalName) + ' 전광판</h1>' +
+      '<p>로비와 체육관 전광판에 각각 띄우고, 담당 선생님은 휴대폰 조종기로 공연 순서와 공지를 바꿉니다.</p>' +
+      '<div class="pick"><a href="#lobby"><strong>로비 화면</strong><span>시간표대로 일정·부스·스탬프가 자동으로 넘어가요</span></a>' +
+      '<a href="#gym" class="main"><strong>체육관 화면</strong><span>지금 공연·다음 팀·대기 호출, 결과 발표</span></a>' +
+      '<a href="#control"><strong>조종기</strong><span>휴대폰으로 다음 팀, 공지, 결과 공개 (비밀번호 ' + (sim ? esc(C.controlPin) : '필요') + ')</span></a></div>' +
+      '<div class="simbox"><h2>시간 미리보기 · 리허설용</h2><div class="chiprow" id="sims">' +
+        sims.map(s => '<button class="chip" type="button" data-sim="' + s[0] + '" aria-pressed="' + ((s[0] === "" && !sim) || (cur && cur[0] === s[0])) + '">' + s[1] + '</button>').join("") +
+      '</div><p class="hint">시간을 고른 뒤 화면을 열면 그 시각의 전광판을 볼 수 있어요. 화면에서 <b>H</b>를 누르면 키보드 조종법이 나와요.</p></div>' +
+      '<div class="urls">GitHub에 올린 뒤에는 이 주소로 바로 엽니다<br>로비 <code>…/index.html?screen=lobby</code><br>체육관 <code>…/index.html?screen=gym</code><br>조종기 <code>…/index.html?screen=control</code><br>리허설 <code>?screen=gym&amp;sim=2026-10-30T14:30</code></div>' +
+      '<div class="foot">' + esc(C.credit) + '</div></div>';
+    document.getElementById("sims").onclick = e => { const b = e.target.closest("[data-sim]"); if (!b) return; setSim(b.dataset.sim); renderHome(); };
+  }
+
+  /* ---------------- 라우터 ---------------- */
+  function route(){
+    if (stopScreen) { stopScreen(); stopScreen = null; }
+    const v = params.get("screen") || (location.hash || "").slice(1) || "home";
+    if (v === "lobby" || v === "gym") renderScreen(v);
+    else if (v === "control") renderControl();
+    else renderHome();
+  }
+  addEventListener("hashchange", () => { if (!params.get("screen")) route(); });
+  Sync.init().then(() => {});
+  route();
+})();
+</script>
+</body>
+</html>
