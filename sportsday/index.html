@@ -317,7 +317,7 @@ function drawBoard() {
   // 오른쪽
   const evs = list(S.events);
   const live = evs.filter(e => e.status === 'live');
-  const done = evs.filter(e => e.status === 'done').sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0))  .slice(0, 3);
+  const done = evs.filter(e => e.status === 'done').sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)).slice(0, 2);
   const next = evs.filter(e => !e.status || e.status === 'ready').slice(0, 2);
   let sh = `<div class="bbox${live.length ? ' live' : ''}"><h3>🔥 지금 경기 중</h3>${live.length ? live.map(e => `<div class="ln"><b>${esc(e.name)}</b>${e.group ? ` <span class="muted">${esc(e.group)}</span>` : ''}</div>`).join('') : '<div class="muted">-</div>'}</div>`;
   sh += `<div class="bbox"><h3>✅ 최근 결과</h3>${done.length ? done.map(e => `<div class="ln"><b>${esc(e.name)}</b><br><span class="muted">${hide ? '결과 비공개' : '🥇 ' + winners(e).map(id => esc(tLabel(S.teams[id]))).join(', ')}</span></div>`).join('') : '<div class="muted">-</div>'}</div>`;
