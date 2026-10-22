@@ -148,7 +148,7 @@ canvas#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-in
     <div class="tools">
       <div class="seg" role="group" aria-label="추첨 대상">
         <button id="modeStu" aria-pressed="true">학생</button>
-        <button id="modeTch" aria-pressed="false">선생님</button>
+        <button id="modeTch" aria-pressed="false">교직원</button>
       </div>
       <button class="tbtn" id="soundBtn" title="소리 켜기/끄기 (M)">소리 켜짐</button>
       <button class="tbtn" id="fsBtn" title="전체 화면 (F)">전체 화면</button>
@@ -165,7 +165,7 @@ canvas#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-in
       <div class="reel"><div class="win" id="rn">?</div><span class="cap">번호</span></div>
     </section>
     <section class="reels" id="tchReels" hidden>
-      <div class="reel"><div class="win wide" id="rt">?</div><span class="cap">선생님</span></div>
+      <div class="reel"><div class="win wide" id="rt">?</div><span class="cap">교직원</span></div>
     </section>
     <div class="reveal">
       <div class="name" id="nameBox">누가 뽑힐까요?</div>
@@ -197,7 +197,7 @@ canvas#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-in
     <button class="go" id="goBtn">추첨 시작</button>
     <div class="keyhelp">
       <span><kbd>Space</kbd> 다음 단계</span><span><kbd>O</kbd> 당첨 확정</span><span><kbd>X</kbd> 무효</span>
-      <span><kbd>T</kbd> 학생/선생님</span><span><kbd>F</kbd> 전체 화면</span><span><kbd>S</kbd> 설정</span><span><kbd>M</kbd> 소리</span>
+      <span><kbd>T</kbd> 학생/교직원</span><span><kbd>F</kbd> 전체 화면</span><span><kbd>S</kbd> 설정</span><span><kbd>M</kbd> 소리</span>
     </div>
   </footer>
 </div>
@@ -206,9 +206,16 @@ canvas#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-in
   <div class="panel" role="dialog" aria-label="추첨 설정">
     <div class="phead"><h2>추첨 설정</h2><button class="pbtn" id="closeSet">닫기 <kbd>Esc</kbd></button></div>
 
+    <div class="box" style="border:2px solid var(--gold)">
+      <h3>엑셀 파일로 한 번에 불러오기 (가장 쉬움)</h3>
+      <p>학교 명렬표 엑셀 파일을 그대로 고르세요. <b>"1학년·2학년·3학년" 시트</b>(반 · 번호 · 성명)와 <b>"교직원" 시트</b>(연번 · 구분 · 성명)를 자동으로 읽습니다. 파일은 이 컴퓨터 안에서만 읽히고 인터넷으로 보내지지 않습니다.</p>
+      <input type="file" id="xlsFile" accept=".xlsx,.xls,.csv">
+      <div class="msg" id="xlsMsg"></div>
+    </div>
+
     <div class="cols">
       <div class="box">
-        <h3>① 전교생 명렬표</h3>
+        <h3>① 전교생 명렬표 (직접 붙여 넣기)</h3>
         <p>엑셀에서 <b>학년 · 반 · 번호 · 이름</b> 칸을 드래그해 복사(Ctrl+C)한 뒤 아래에 붙여 넣으세요(Ctrl+V). <b>학번(10305) · 이름</b> 두 칸이어도 됩니다. 제목 줄은 자동으로 건너뜁니다.</p>
         <p id="stuNow"></p>
         <textarea id="stuText" placeholder="1	1	1	김민준&#10;1	1	2	이서연&#10;또는&#10;10101	김민준"></textarea>
@@ -216,7 +223,7 @@ canvas#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-in
         <div class="msg" id="stuMsg"></div>
       </div>
       <div class="box">
-        <h3>② 선생님 명단</h3>
+        <h3>② 교직원 명단 (직접 붙여 넣기)</h3>
         <p>한 줄에 한 분씩, 또는 쉼표로 구분해 붙여 넣으세요. "선생님"은 자동으로 떼어 냅니다.</p>
         <p id="tchNow"></p>
         <textarea id="tchText" placeholder="김정환&#10;홍길동&#10;…"></textarea>
@@ -254,6 +261,8 @@ canvas#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-in
 
 <canvas id="fx"></canvas>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (function(){
 "use strict";
@@ -310,6 +319,75 @@ function parseTeachers(text){
 }
 
 /* ---------- 계산 ---------- */
+function honor(t){
+  const r=(t&&t.role||'').replace(/\s/g,'');
+  if(!r||/^(교사|전문상담|사서|영양|특수|보건)/.test(r))return '선생님';
+  if(r==='교장')return '교장선생님';if(r==='교감')return '교감선생님';
+  if(r==='행정실장')return '실장님';if(r==='행정계장')return '계장님';
+  if(/실무사$/.test(r))return '실무사님';
+  return r+'님';
+}
+function importWorkbook(sheets){
+  const st=[],tc=[],seenS=new Set(),seenT=new Set();let blank=0;
+  const isHead=v=>/^(성\s*명|이\s*름|구\s*분|반|번\s*호|연\s*번)$/.test(v);
+  sheets.forEach(({name:sn,rows})=>{
+    const first=String((rows[0]||[])[0]||'');
+    const gm=sn.match(/([1-6])\s*학년/)||first.match(/^([1-6])\s*학년/);
+    if(gm){
+      const g=+gm[1];
+      rows.forEach(r=>{
+        const c=parseInt(String(r[0]).replace(/[^0-9]/g,''),10),n=parseInt(String(r[1]).replace(/[^0-9]/g,''),10),name=String(r[2]||'').trim();
+        if(!(c>=1&&n>=1))return;
+        if(!name||isHead(name)){blank++;return;}
+        const id=g+'-'+c+'-'+n;if(seenS.has(id))return;seenS.add(id);st.push({id,g,c,n,name});
+      });
+    }else if(/교직원|교원|교사|선생/.test(sn+first)){
+      rows.forEach(r=>{
+        const name=String(r[2]||'').trim(),role=String(r[1]||'').trim();
+        if(!name||isHead(name)||isHead(role))return;
+        if(seenT.has(name))return;seenT.add(name);tc.push({id:name,name,role});
+      });
+    }else{
+      const tsv=rows.map(r=>r.join('\t')).join('\n');
+      parseStudents(tsv).out.forEach(s=>{if(!seenS.has(s.id)){seenS.add(s.id);st.push(s)}});
+    }
+  });
+  st.sort((a,b)=>a.g-b.g||a.c-b.c||a.n-b.n);
+  return {st,tc,blank};
+}
+/* 한셀·NEIS처럼 접두어(x:)가 붙은 xlsx도 읽는 자체 해독기 */
+async function readXlsx(buf){
+  const zip=await JSZip.loadAsync(buf);
+  const xml=async path=>{const f=zip.file(path);return f?new DOMParser().parseFromString(await f.async('string'),'application/xml'):null};
+  const els=(n,local)=>n?Array.from(n.getElementsByTagNameNS('*',local)):[];
+  const txt=n=>els(n,'t').map(t=>t.textContent).join('');
+  const wbx=await xml('xl/workbook.xml'),rels=await xml('xl/_rels/workbook.xml.rels');
+  if(!wbx)throw new Error('엑셀(xlsx) 파일 구조가 아닙니다');
+  const target={};els(rels,'Relationship').forEach(r=>{target[r.getAttribute('Id')]=r.getAttribute('Target')});
+  const sst=els(await xml('xl/sharedStrings.xml'),'si').map(txt);
+  const col=ref=>{let c=0;for(const ch of ref.replace(/[0-9]/g,''))c=c*26+(ch.charCodeAt(0)-64);return c-1};
+  const out=[];
+  for(const sh of els(wbx,'sheet')){
+    const rid=Array.from(sh.attributes).find(a=>/(^|:)id$/.test(a.name)&&a.name!=='sheetId');
+    let t=rid&&target[rid.value];if(!t)continue;
+    t=t.replace(/^\//,'');if(!t.startsWith('xl/'))t='xl/'+t;
+    const doc=await xml(t);const rows=[];
+    els(doc,'row').forEach(rw=>{
+      const r=[];
+      els(rw,'c').forEach(c=>{
+        const ref=c.getAttribute('r')||'',ty=c.getAttribute('t'),v=els(c,'v')[0];
+        let val='';
+        if(ty==='s')val=v?(sst[+v.textContent]||''):'';
+        else if(ty==='inlineStr')val=txt(c);
+        else val=v?v.textContent:'';
+        const i=ref?col(ref):r.length;while(r.length<i)r.push('');r[i]=val;
+      });
+      rows.push(r);
+    });
+    out.push({name:sh.getAttribute('name')||'',rows});
+  }
+  return out;
+}
 const key=(type,id)=>type+':'+id;
 function pool(){
   const used=new Set(S.history.map(h=>key(h.type,h.id)));
@@ -397,7 +475,7 @@ function next(){
 function reveal(){
   const nb=$('#nameBox');
   if(S.mode==='student'){nb.textContent=target.name;$('#subLine').textContent=target.g+'학년 '+target.c+'반 '+target.n+'번';}
-  else{nb.textContent=target.name+' 선생님';$('#subLine').textContent='';}
+  else{nb.textContent=target.name+' '+honor(target);$('#subLine').textContent=target.role&&target.role!=='교사'?target.role:'';}
   nb.className='name hit';snd.fanfare();
   phase='verdict';$('#verdict').hidden=false;
   if(S.mode==='student'){
@@ -405,7 +483,7 @@ function reveal(){
     $('#okBtn').firstChild.textContent='도장 15개 확인 · 당첨';$('#noBtn').firstChild.textContent='무효 · 다시 뽑기';
     startCountdown();
   }else{
-    $('#ring').hidden=true;$('#callText').textContent='선생님, 무대로 나와 주세요!';
+    $('#ring').hidden=true;$('#callText').textContent=honor(target)+', 무대로 나와 주세요!';
     $('#okBtn').firstChild.textContent='당첨 확정';$('#noBtn').firstChild.textContent='안 계심 · 다시 뽑기';
   }
   render();
@@ -424,7 +502,7 @@ function stopCountdown(){if(cdTimer){clearInterval(cdTimer);cdTimer=null}}
 function judge(ok){
   if(phase!=='verdict')return;
   stopCountdown();
-  S.history.push({type:S.mode,id:target.id,name:target.name,g:target.g||'',c:target.c||'',n:target.n||'',prize:S.prize,result:ok?'win':'void',time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})});
+  S.history.push({type:S.mode,id:target.id,name:target.name,role:target.role||'',g:target.g||'',c:target.c||'',n:target.n||'',prize:S.prize,result:ok?'win':'void',time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})});
   save();
   const st=$('#stamp');st.className='stamp '+(ok?'ok':'no');st.textContent=ok?'당첨!':'무효!';st.hidden=false;void st.offsetWidth;st.classList.add('in');
   $('#verdict').hidden=true;
@@ -436,12 +514,12 @@ function judge(ok){
 function render(){
   $('#prizeName').textContent=S.prize;
   const w=winsOfPrize();$('#prizeProg').textContent=w+' / '+S.quota+'명'+(w>=S.quota?' · 완료':'');
-  $('#poolInfo').textContent=(S.mode==='student'?'학생':'선생님')+' 응모 '+pool().length+'명';
+  $('#poolInfo').textContent=(S.mode==='student'?'학생':'교직원')+' 응모 '+pool().length+'명';
   $('#modeStu').setAttribute('aria-pressed',S.mode==='student');$('#modeTch').setAttribute('aria-pressed',S.mode==='teacher');
   $('#stuReels').hidden=S.mode!=='student';$('#tchReels').hidden=S.mode!=='teacher';
   $('#soundBtn').textContent=S.muted?'소리 꺼짐':'소리 켜짐';
   const b=$('#banner'),parts=[];
-  if(S.sampleS)parts.push('학생');if(S.sampleT)parts.push('선생님');
+  if(S.sampleS)parts.push('학생');if(S.sampleT)parts.push('교직원');
   b.hidden=!parts.length;
   if(parts.length)b.innerHTML='<b>예시 명단으로 돌아가는 중</b> · '+parts.join('·')+' 명단이 가짜 이름입니다. 설정(S)에서 실제 명렬표를 붙여 넣으세요.';
   const go=$('#goBtn'),labels={idle:'추첨 시작',spin:'학년 멈추기',g:'반 멈추기',c:'번호 멈추기 · 두구두구',tspin:'멈추기 · 두구두구',verdict:'O 당첨 / X 무효를 눌러 주세요'};
@@ -455,7 +533,7 @@ function render(){
   if(!S.history.length){ol.innerHTML='<li class="none" style="background:none;padding:0">아직 추첨 결과가 없습니다.</li>';return;}
   let no=wins.length;
   ol.innerHTML=S.history.slice().reverse().map(h=>{
-    const who=h.type==='student'?h.g+'학년 '+h.c+'반 '+h.n+'번':'선생님';
+    const who=h.type==='student'?h.g+'학년 '+h.c+'반 '+h.n+'번':(h.role||'교직원');
     const tag=h.result==='win'?String(no--):'무효';
     return '<li class="'+(h.result==='win'?'':'void')+'"><span class="no">'+tag+'</span><b>'+esc(h.name)+'</b><span class="who">'+esc(who)+' · '+esc(h.prize)+'</span></li>';
   }).join('');
@@ -465,7 +543,7 @@ function render(){
 function openSet(){
   if(phase!=='idle'&&phase!=='verdict')return;
   $('#stuNow').innerHTML='현재 학생 명단: <b>'+S.students.length+'명</b>'+(S.sampleS?' (예시)':'')+' · 학년 '+grades().join(', ');
-  $('#tchNow').innerHTML='현재 선생님 명단: <b>'+S.teachers.length+'명</b>'+(S.sampleT?' (예시)':'');
+  $('#tchNow').innerHTML='현재 교직원 명단: <b>'+S.teachers.length+'명</b>'+(S.sampleT?' (예시)':'');
   $('#prizeInput').value=S.prize;$('#quotaInput').value=S.quota;$('#cdInput').value=S.cd;
   ['#stuMsg','#tchMsg','#prizeMsg','#resMsg'].forEach(s=>{$(s).textContent='';$(s).className='msg'});
   resetArm=false;$('#resetBtn').textContent='모든 추첨 기록 지우기';
@@ -486,11 +564,11 @@ $('#tchApply').onclick=()=>{
   const out=parseTeachers($('#tchText').value);
   if(!out.length){msg('#tchMsg','읽은 이름이 없습니다.',true);return;}
   S.teachers=out;S.sampleT=false;S.history=S.history.filter(h=>h.type!=='teacher');save();
-  msg('#tchMsg','선생님 '+out.length+'분을 읽었습니다.');$('#tchText').value='';openSetCounts();
+  msg('#tchMsg','교직원 '+out.length+'분을 읽었습니다.');$('#tchText').value='';openSetCounts();
 };
 function openSetCounts(){
   $('#stuNow').innerHTML='현재 학생 명단: <b>'+S.students.length+'명</b>'+(S.sampleS?' (예시)':'')+' · 학년 '+grades().join(', ');
-  $('#tchNow').innerHTML='현재 선생님 명단: <b>'+S.teachers.length+'명</b>'+(S.sampleT?' (예시)':'');
+  $('#tchNow').innerHTML='현재 교직원 명단: <b>'+S.teachers.length+'명</b>'+(S.sampleT?' (예시)':'');
   render();
 }
 $('#prizeApply').onclick=()=>{
@@ -502,7 +580,7 @@ $('#prizeApply').onclick=()=>{
 };
 function resultTable(){
   const head=['순서','구분','학년','반','번호','이름','상품','결과','시각'];
-  const rows=S.history.map((h,i)=>[i+1,h.type==='student'?'학생':'교사',h.g,h.c,h.n,h.name,h.prize,h.result==='win'?'당첨':'무효',h.time]);
+  const rows=S.history.map((h,i)=>[i+1,h.type==='student'?'학생':(h.role||'교직원'),h.g,h.c,h.n,h.name,h.prize,h.result==='win'?'당첨':'무효',h.time]);
   return [head].concat(rows).map(r=>r.join('\t')).join('\n');
 }
 $('#copyBtn').onclick=()=>{
@@ -518,6 +596,33 @@ let resetArm=false;
 $('#resetBtn').onclick=()=>{
   if(!resetArm){resetArm=true;$('#resetBtn').textContent='한 번 더 누르면 모두 지워집니다';return;}
   S.history=[];save();resetArm=false;$('#resetBtn').textContent='모든 추첨 기록 지우기';resetBoard();render();msg('#resMsg','모든 추첨 기록을 지웠습니다.');
+};
+$('#xlsFile').onchange=e=>{
+  const f=e.target.files&&e.target.files[0];if(!f)return;
+  if(typeof XLSX==='undefined'&&typeof JSZip==='undefined'){msg('#xlsMsg','엑셀 읽기 도구를 불러오지 못했습니다(인터넷 확인). 아래 칸에 직접 붙여 넣어 주세요.',true);return;}
+  const rd=new FileReader();
+  rd.onload=async()=>{
+    try{
+      let sheets=null;
+      if(/\.xlsx$/i.test(f.name)&&typeof JSZip!=='undefined'){try{sheets=await readXlsx(rd.result)}catch(e2){sheets=null}}
+      if(!sheets||!sheets.length){
+        if(typeof XLSX==='undefined')throw new Error('엑셀 읽기 도구를 불러오지 못했습니다(인터넷 확인)');
+        const wb=XLSX.read(new Uint8Array(rd.result),{type:'array'});
+        sheets=wb.SheetNames.map(n=>({name:n,rows:XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:'',raw:false})}));
+      }
+      const {st,tc,blank}=importWorkbook(sheets);
+      if(!st.length&&!tc.length){msg('#xlsMsg','학생이나 교직원을 찾지 못했습니다. 시트 이름(1학년, 교직원)과 칸 순서(반·번호·성명)를 확인해 주세요.',true);return;}
+      const out=[];
+      if(st.length){S.students=st;S.sampleS=false;S.history=S.history.filter(h=>h.type!=='student');
+        const by={};st.forEach(s=>{by[s.g]=(by[s.g]||0)+1});
+        out.push('학생 '+st.length+'명('+Object.keys(by).map(g=>g+'학년 '+by[g]).join(', ')+')');}
+      if(tc.length){S.teachers=tc;S.sampleT=false;S.history=S.history.filter(h=>h.type!=='teacher');out.push('교직원 '+tc.length+'분');}
+      save();openSetCounts();
+      msg('#xlsMsg','불러왔습니다: '+out.join(' · ')+(blank?' · 이름이 빈 줄 '+blank+'개는 뺐습니다.':''));
+    }catch(err){msg('#xlsMsg','파일을 읽지 못했습니다: '+err.message,true)}
+    e.target.value='';
+  };
+  rd.readAsArrayBuffer(f);
 };
 $('#closeSet').onclick=closeSet;
 $('#setBtn').onclick=openSet;
