@@ -300,7 +300,7 @@ function submitScores(){
   $("submitBtn").disabled=true;$("submitBtn").textContent="제출 중...";
   const merged=JSON.parse(JSON.stringify(scores));Object.keys(out).forEach(k=>merged[k]=out[k]);
   Object.keys(merged).forEach(k=>{Object.keys(merged[k]||{}).forEach(c=>{if(merged[k][c]===null)delete merged[k][c];});});
-  db.ref(`${ROOT}/judges/${judgeId}`).set({name,scores:merged,memos:outM,time:Date.now()})
+  db.ref(`${ROOT}/events/${judgeId}`).set({name,scores:merged,memos:outM,time:Date.now()})
     .then(()=>{ls("gs_submitted","1");showDone();})
     .catch(e=>alert("제출 실패: "+e.message+"\n인터넷 연결을 확인하고 다시 눌러 주세요."))
     .finally(()=>{$("submitBtn").disabled=false;$("submitBtn").textContent="다시 제출하기";});
@@ -327,7 +327,7 @@ function startHost(){
   $("hdrSub").textContent="심사위원장 · 실시간 합산 결과";
   loadEdit();
   if(!db)return;
-  db.ref(`${ROOT}/judges`).on("value",snap=>{lastData=snap.val()||{};renderHost();});
+  db.ref(`${ROOT}/events`).on("value",snap=>{lastData=snap.val()||{};renderHost();});
 }
 const rankOf=arr=>arr.map(v=>1+arr.filter(x=>x>v).length);
 const medal=r=>r===1?"🥇":r===2?"🥈":r===3?"🥉":"";
@@ -384,11 +384,11 @@ function renderHost(){
     </table></div></div>`;
   }).join(""):`<div class="notice">제출된 채점표가 없습니다.</div>`;
 }
-function delJudge(id){const j=lastData[id];if(j&&confirm(`${j.name} 심사위원의 제출을 삭제할까요?`))db.ref(`${ROOT}/judges/${id}`).remove();}
+function delJudge(id){const j=lastData[id];if(j&&confirm(`${j.name} 심사위원의 제출을 삭제할까요?`))db.ref(`${ROOT}/events/${id}`).remove();}
 function resetAll(){
   if(!confirm("모든 심사 점수를 삭제합니다. (참가팀·항목 설정은 유지) 정말 초기화할까요?"))return;
   if(prompt("확인을 위해 비밀번호를 다시 입력하세요")!==HOST_PW){alert("비밀번호가 틀렸습니다.");return;}
-  db.ref(`${ROOT}/judges`).remove().then(()=>alert("초기화되었습니다.\n※ 심사위원은 각자 '점수 수정하기' → 다시 제출하면 됩니다."));
+  db.ref(`${ROOT}/events`).remove().then(()=>alert("초기화되었습니다.\n※ 심사위원은 각자 '점수 수정하기' → 다시 제출하면 됩니다."));
 }
 
 /* ----- 편집 ----- */
@@ -416,7 +416,7 @@ function saveConfig(){
   if(!crits.length){alert("심사항목이 최소 1개는 있어야 합니다.");return;}
   if(crits.some(c=>!(c.max>0))){alert("배점은 1 이상의 숫자로 입력해 주세요.");return;}
   if(!confirm(`참가팀 ${teams.length}개, 심사항목 ${crits.length}개(만점 ${crits.reduce((a,c)=>a+c.max,0)}점)로 저장할까요?\n모든 심사위원 폰에 즉시 반영됩니다.`))return;
-  db.ref(`${ROOT}/config`).set({teams,crits,updated:Date.now()}).then(()=>{editDirty=false;alert("저장되었습니다.");});
+  db.ref(`${ROOT}/meta`).set({teams,crits,updated:Date.now()}).then(()=>{editDirty=false;alert("저장되었습니다.");});
 }
 
 /* ----- 복사 ----- */
@@ -454,7 +454,7 @@ function onConfig(v){
 if(isHost)$("pw").addEventListener("keydown",e=>{if(e.key==="Enter")hostLogin();});
 if(db){
   firebase.auth().signInAnonymously()
-    .then(()=>db.ref(`${ROOT}/config`).on("value",s=>onConfig(s.val()),e=>{alert("DB 연결 오류: "+e.message);onConfig(null);}))
+    .then(()=>db.ref(`${ROOT}/meta`).on("value",s=>onConfig(s.val()),e=>{alert("DB 연결 오류: "+e.message);onConfig(null);}))
     .catch(e=>{alert("로그인 오류: "+e.message+"\n새로고침 해 주세요.");onConfig(null);});
 }else onConfig(null);
 </script>
