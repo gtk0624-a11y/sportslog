@@ -179,6 +179,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script>
 /* ========== ① Firebase 설정 ========== */
 const firebaseConfig = {
@@ -202,7 +203,7 @@ const DEFAULT_TEAMS = [
   "20220 조율 · 30225 주선화"
 ];
 const DEFAULT_CRITS = [["예술성",20],["흥미유발",20],["독창성",20],["공연 적절성",20],["관객 호응도",20]];
-const ROOT = "gokseonje2026";
+const ROOT = "rooms/gsjudge2026";
 /* ============================================================ */
 
 const $=id=>document.getElementById(id);
@@ -452,7 +453,9 @@ function onConfig(v){
 }
 if(isHost)$("pw").addEventListener("keydown",e=>{if(e.key==="Enter")hostLogin();});
 if(db){
-  db.ref(`${ROOT}/config`).on("value",s=>onConfig(s.val()),e=>{alert("DB 연결 오류: "+e.message);onConfig(null);});
+  firebase.auth().signInAnonymously()
+    .then(()=>db.ref(`${ROOT}/config`).on("value",s=>onConfig(s.val()),e=>{alert("DB 연결 오류: "+e.message);onConfig(null);}))
+    .catch(e=>{alert("로그인 오류: "+e.message+"\n새로고침 해 주세요.");onConfig(null);});
 }else onConfig(null);
 </script>
 </body>
