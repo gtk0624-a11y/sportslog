@@ -3,30 +3,40 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>곡선제 예능발표회 심사</title>
+<title>2026 곡선 RAS 페스타 심사</title>
 <style>
-  :root{--bg:#f4f6fb;--card:#fff;--ink:#1d2433;--sub:#6b7489;--line:#e2e6ef;--main:#4f46e5;--main2:#eef0ff;--warn:#dc2626}
+  :root{--bg:#f6f3ea;--card:#fff;--ink:#16213e;--sub:#6b7280;--line:#e7e2d4;--main:#1e3a6e;--main2:#eef3fb;--gold:#f5c518;--gold2:#fff6cc;--pink:#f8a5b5;--warn:#dc2626}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;-webkit-text-size-adjust:100%}
-  header{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;padding:18px 16px 16px;text-align:center}
-  header h1{margin:0;font-size:20px}
-  header p{margin:4px 0 0;font-size:13px;opacity:.9}
+  body{margin:0;background:var(--bg) radial-gradient(circle at 10% 20%,#fff6cc 0 2px,transparent 3px) 0 0/38px 38px;color:var(--ink);font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;-webkit-text-size-adjust:100%}
+  header{position:relative;overflow:hidden;background:radial-gradient(ellipse at 30% -20%,rgba(245,197,24,.45),transparent 55%),radial-gradient(ellipse at 90% 120%,rgba(248,165,181,.35),transparent 50%),linear-gradient(160deg,#1e3a6e,#0f1f42);color:#fff;padding:22px 130px 24px 18px;min-height:150px;border-radius:0 0 26px 26px;box-shadow:0 6px 18px rgba(15,31,66,.25)}
+  header::before{content:"✦ ✧ ✦  ✧";position:absolute;left:14px;top:8px;color:var(--gold);letter-spacing:10px;font-size:13px;opacity:.85}
+  header .tag{display:inline-block;background:var(--gold);color:#16213e;font-weight:800;font-size:12px;padding:3px 10px;border-radius:999px;margin-top:14px}
+  header h1{margin:8px 0 0;font-size:23px;line-height:1.25;letter-spacing:-.5px}
+  header h1 em{font-style:normal;color:var(--gold)}
+  header p{margin:6px 0 0;font-size:14px;opacity:.9}
+  header img.mascot{position:absolute;right:10px;bottom:-6px;width:118px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.35));animation:bob 2.6s ease-in-out infinite;transform-origin:bottom center}
+  @keyframes bob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-8px) rotate(3deg)}}
+  @media (prefers-reduced-motion:reduce){header img.mascot{animation:none}}
   main{max-width:760px;margin:0 auto;padding:14px 12px 120px}
-  .card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .card{background:var(--card);border-radius:18px;padding:16px;margin-bottom:14px;box-shadow:0 2px 0 var(--line),0 6px 16px rgba(30,58,110,.07)}
+  #teamCards .card{border-top:6px solid var(--gold)}
+  #teamCards .card:nth-child(even){border-top-color:var(--pink)}
   .hidden{display:none!important}
   label.lb{display:block;font-weight:700;margin-bottom:6px}
   input[type=text],input[type=password],input[type=number],textarea{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;font-size:16px;font-family:inherit}
   textarea{min-height:44px;resize:vertical}
   button{font-family:inherit;cursor:pointer}
-  .btn{display:block;width:100%;padding:14px;border:0;border-radius:12px;background:var(--main);color:#fff;font-size:17px;font-weight:700}
-  .btn.gray{background:#e5e7eb;color:var(--ink)}
-  .btn.red{background:var(--warn)}
+  .btn{display:block;width:100%;padding:15px;border:0;border-radius:14px;background:linear-gradient(180deg,#2a4b86,#1e3a6e);color:#fff;font-size:17px;font-weight:800;box-shadow:0 4px 0 #0f1f42;transition:transform .08s}
+  .btn:active{transform:translateY(3px);box-shadow:0 1px 0 #0f1f42}
+  #submitBtn{background:linear-gradient(180deg,#ffd84a,#f5c518);color:#16213e;box-shadow:0 4px 0 #c79c00}
+  .btn.gray{background:#efeadb;color:var(--ink);box-shadow:0 4px 0 #d8d1bd}
+  .btn.red{background:var(--warn);box-shadow:0 4px 0 #991b1b}
   .btn.sm{padding:10px;font-size:15px}
   .btn:disabled{opacity:.5}
   .team-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
-  .team-h .no{background:var(--main);color:#fff;border-radius:8px;padding:3px 9px;font-weight:800;font-size:14px;white-space:nowrap}
-  .team-h .mem{flex:1;font-size:14px;color:var(--sub);line-height:1.45;white-space:pre-line}
-  .team-h .tot{font-size:22px;font-weight:800;color:var(--main);white-space:nowrap}
+  .team-h .no{background:var(--main);color:var(--gold);border-radius:12px;width:46px;height:46px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;white-space:nowrap;flex:none}
+  .team-h .mem{flex:1;font-size:15px;font-weight:700;color:var(--ink);line-height:1.45;white-space:pre-line;padding-top:2px}
+  .team-h .tot{font-size:24px;font-weight:900;color:var(--main);white-space:nowrap;background:var(--gold2);border-radius:12px;padding:4px 10px}
   .team-h .tot small{font-size:12px;color:var(--sub);font-weight:500}
   .crit{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px dashed var(--line)}
   .crit .nm{width:92px;font-size:14px;font-weight:600;word-break:keep-all}
@@ -46,7 +56,8 @@
   th{background:#f8fafc;font-size:13px}
   td.l{text-align:left;white-space:pre-line}
   .scroll{overflow-x:auto}
-  .rank1{background:#fff7e0}
+  .rank1{background:var(--gold2)}
+  th{background:var(--main)!important;color:#fff;border-color:#2a4b86!important}
   .rk{font-weight:800;font-size:16px;white-space:nowrap}
   .chips{display:flex;flex-wrap:wrap;gap:6px}
   .chip{padding:6px 10px;border-radius:999px;background:#dcfce7;color:#166534;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
@@ -67,15 +78,18 @@
   .ed .bs button.x{color:var(--warn)}
   .sub{font-size:13px;color:var(--sub);margin:4px 0 6px}
   .big-done{text-align:center;padding:30px 10px}
-  .big-done .em{font-size:56px}
+  .big-done img{width:150px;animation:bob 2.2s ease-in-out infinite}
+  .big-done h2{font-size:24px;color:var(--main)}
   footer{text-align:center;font-size:12px;color:var(--sub);padding:10px}
   @media print{header,.noprint,.bar{display:none!important}body{background:#fff}.card{box-shadow:none;border:1px solid #ccc}main{padding:0}}
 </style>
 </head>
 <body>
 <header>
-  <h1>🎤 2026 예능발표회(곡선제) 심사</h1>
+  <span class="tag">🎤 예능발표회 심사</span>
+  <h1>2026 곡선<br><em>RAS 페스타</em></h1>
   <p id="hdrSub">심사위원 채점표</p>
+  <img class="mascot" src="kkumsong.png" alt="꿈송이">
 </header>
 
 <main>
@@ -93,7 +107,7 @@
     </div>
     <div id="teamCards"></div>
     <div id="doneCard" class="card hidden">
-      <div class="big-done"><div class="em">✅</div><h2>제출 완료!</h2><p style="color:var(--sub)">심사위원장 화면에 자동으로 합산됩니다.<br>수정이 필요하면 아래 버튼을 눌러 고친 뒤 다시 제출하세요.</p></div>
+      <div class="big-done"><img src="kkumsong.png" alt="꿈송이"><h2>제출 완료! 고맙습니다 💛</h2><p style="color:var(--sub)">심사위원장 화면에 자동으로 합산됩니다.<br>수정이 필요하면 아래 버튼을 눌러 고친 뒤 다시 제출하세요.</p></div>
       <button class="btn gray" onclick="editAgain()">점수 수정하기</button>
     </div>
   </section>
@@ -429,7 +443,7 @@ function copyResult(){
   const {judges,tot,cntJ,ranks}=calc();
   const lines=config.teams.map((t,i)=>i).sort((a,b)=>ranks[a]-ranks[b]||a-b)
     .map(i=>`${ranks[i]}위 | ${i+1}번 ${config.teams[i].name.replace(/\n/g," ")} | 총점 ${tot[i]} (평균 ${cntJ[i]?(tot[i]/cntJ[i]).toFixed(1):0})`);
-  copyText(`[2026 곡선제 예능발표회 심사결과] 심사위원 ${judges.length}명\n`+lines.join("\n"),"결과가 복사되었습니다.");
+  copyText(`[2026 곡선 RAS 페스타 예능발표회 심사결과] 심사위원 ${judges.length}명\n`+lines.join("\n"),"결과가 복사되었습니다.");
 }
 
 /* ================= 시작 ================= */
