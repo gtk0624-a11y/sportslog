@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>곡선제 예능발표회 심사</title>
+<style>
+  :root{--bg:#f4f6fb;--card:#fff;--ink:#1d2433;--sub:#6b7489;--line:#e2e6ef;--main:#4f46e5;--main2:#eef0ff;--ok:#16a34a;--warn:#dc2626;--gold:#f59e0b}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;-webkit-text-size-adjust:100%}
+  header{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;padding:18px 16px 16px;text-align:center}
+  header h1{margin:0;font-size:20px}
+  header p{margin:4px 0 0;font-size:13px;opacity:.9}
+  main{max-width:760px;margin:0 auto;padding:14px 12px 120px}
+  .card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .hidden{display:none!important}
+  label.lb{display:block;font-weight:700;margin-bottom:6px}
+  input[type=text],input[type=password],textarea{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;font-size:16px;font-family:inherit}
+  textarea{min-height:44px;resize:vertical}
+  button{font-family:inherit;cursor:pointer}
+  .btn{display:block;width:100%;padding:14px;border:0;border-radius:12px;background:var(--main);color:#fff;font-size:17px;font-weight:700}
+  .btn.gray{background:#e5e7eb;color:var(--ink)}
+  .btn.red{background:var(--warn)}
+  .btn:disabled{opacity:.5}
+  .team-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
+  .team-h .no{background:var(--main);color:#fff;border-radius:8px;padding:3px 9px;font-weight:800;font-size:14px;white-space:nowrap}
+  .team-h .mem{flex:1;font-size:14px;color:var(--sub);line-height:1.45}
+  .team-h .tot{font-size:22px;font-weight:800;color:var(--main);white-space:nowrap}
+  .team-h .tot small{font-size:12px;color:var(--sub);font-weight:500}
+  .crit{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px dashed var(--line)}
+  .crit .nm{width:92px;font-size:14px;font-weight:600}
+  .crit .ctl{flex:1;display:flex;align-items:center;gap:6px}
+  .crit .ctl button{width:40px;height:40px;border-radius:10px;border:1.5px solid var(--line);background:#fff;font-size:20px;font-weight:700;color:var(--main)}
+  .crit .ctl input{width:64px;height:40px;text-align:center;font-size:18px;font-weight:700;border:1.5px solid var(--line);border-radius:10px}
+  .crit .ctl input.empty{border-color:#fca5a5;background:#fff5f5}
+  .crit .ctl .mx{font-size:12px;color:var(--sub)}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -2px 10px rgba(0,0,0,.06)}
+  .bar .in{max-width:760px;margin:0 auto}
+  .bar .st{font-size:13px;color:var(--sub);text-align:center;margin-bottom:6px}
+  .notice{padding:10px 12px;border-radius:10px;background:var(--main2);color:#3730a3;font-size:14px;line-height:1.5}
+  .notice.ok{background:#dcfce7;color:#166534}
+  .notice.err{background:#fee2e2;color:#991b1b}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{border:1px solid var(--line);padding:7px 5px;text-align:center}
+  th{background:#f8fafc;font-size:13px}
+  td.l{text-align:left}
+  .scroll{overflow-x:auto}
+  .rank1{background:#fff7e0}
+  .rk{font-weight:800;font-size:16px}
+  .medal{font-size:18px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{padding:6px 10px;border-radius:999px;background:#dcfce7;color:#166534;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+  .chip button{border:0;background:transparent;color:#991b1b;font-size:14px;padding:0}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1}
+  h2{font-size:17px;margin:0 0 10px}
+  .big-done{text-align:center;padding:30px 10px}
+  .big-done .em{font-size:56px}
+  footer{text-align:center;font-size:12px;color:var(--sub);padding:10px}
+  @media print{header,.noprint,.bar{display:none!important}body{background:#fff}.card{box-shadow:none;border:1px solid #ccc}main{padding:0}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎤 2026 예능발표회(곡선제) 심사</h1>
+  <p id="hdrSub">심사위원 채점표</p>
+</header>
+
+<main>
+  <!-- 설정 안내 -->
+  <div id="cfgWarn" class="card hidden"><div class="notice err">⚠️ Firebase 설정(firebaseConfig)이 아직 입력되지 않았습니다. index.html 파일 안의 firebaseConfig 부분을 채워 주세요.</div></div>
+
+  <!-- ===== 심사위원 화면 ===== -->
+  <section id="judgeView" class="hidden">
+    <div class="card" id="nameCard">
+      <label class="lb" for="judgeName">심사위원 성함</label>
+      <input type="text" id="judgeName" placeholder="예) 김정환" autocomplete="off">
+      <div style="height:8px"></div>
+      <div class="notice">각 항목 0~20점(정수)으로 입력해 주세요. 모든 칸을 채워야 제출됩니다.<br>제출 후에도 다시 고쳐서 <b>재제출</b>하면 덮어쓰기 됩니다.</div>
+    </div>
+    <div id="teamCards"></div>
+    <div id="doneCard" class="card hidden">
+      <div class="big-done"><div class="em">✅</div><h2>제출 완료!</h2><p style="color:var(--sub)">심사위원장 화면에 자동으로 합산됩니다.<br>수정이 필요하면 아래 버튼을 눌러 고친 뒤 다시 제출하세요.</p></div>
+      <button class="btn gray" onclick="editAgain()">점수 수정하기</button>
+    </div>
+  </section>
+
+  <!-- ===== 심사위원장 로그인 ===== -->
+  <section id="hostLogin" class="hidden">
+    <div class="card">
+      <label class="lb" for="pw">심사위원장 비밀번호</label>
+      <input type="password" id="pw" inputmode="numeric" placeholder="비밀번호 입력">
+      <div style="height:10px"></div>
+      <button class="btn" onclick="hostLogin()">결과 보기</button>
+      <div id="pwErr" class="notice err hidden" style="margin-top:10px">비밀번호가 틀렸습니다.</div>
+    </div>
+  </section>
+
+  <!-- ===== 심사위원장 결과 화면 ===== -->
+  <section id="hostView" class="hidden">
+    <div class="card noprint">
+      <h2>📋 제출 현황 <span id="cnt" style="color:var(--main)"></span></h2>
+      <div class="chips" id="chips"></div>
+      <div id="noSub" class="notice" style="margin-top:8px">아직 제출한 심사위원이 없습니다. 제출되면 실시간으로 표시됩니다.</div>
+    </div>
+
+    <div class="card">
+      <h2>🏆 최종 순위 (전체 심사위원 총점 합산)</h2>
+      <div class="scroll"><table id="rankTable"></table></div>
+      <div id="tieNote" class="notice hidden" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <h2>📊 심사기준별 합계</h2>
+      <div class="scroll"><table id="critTable"></table></div>
+    </div>
+
+    <div class="card">
+      <h2>🧑‍⚖️ 심사위원별 상세 점수</h2>
+      <div id="perJudge"></div>
+    </div>
+
+    <div class="card noprint">
+      <div class="row">
+        <button class="btn" onclick="window.print()">🖨️ 인쇄</button>
+        <button class="btn gray" onclick="copyResult()">📋 결과 복사</button>
+      </div>
+      <div style="height:8px"></div>
+      <button class="btn gray" onclick="copyJudgeLink()">🔗 심사위원용 링크 복사</button>
+      <div style="height:8px"></div>
+      <button class="btn red" onclick="resetAll()">🗑️ 전체 초기화 (리허설 후 사용)</button>
+    </div>
+  </section>
+  <footer>© 김정환 · M.A.D.T (Moral And Digital Teacher)</footer>
+</main>
+
+<div class="bar hidden" id="submitBar">
+  <div class="in">
+    <div class="st" id="progress">0 / 30 칸 입력</div>
+    <button class="btn" id="submitBtn" onclick="submitScores()">제출하기</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/* =========================================================
+   ① Firebase 설정 — 파이어베이스 콘솔에서 복사한 값으로 교체하세요
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyDak_jmHLaqYBGbrK91C_ceZbV2MiLf_GY",
+  authDomain: "sports-19ecd.firebaseapp.com",
+  databaseURL: "https://sports-19ecd-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "sports-19ecd",
+  storageBucket: "sports-19ecd.firebasestorage.app",
+  messagingSenderId: "460834209817",
+  appId: "1:460834209817:web:3166dc9c1719c50763aa88"
+};
+
+/* ② 심사위원장 비밀번호 */
+const HOST_PW = "0624";
+
+/* ③ 참가팀 (순서 = 공연 순서) */
+const TEAMS = [
+  "10107 김윤재 · 20106 김하람 · 20314 윤석영",
+  "30107 김지후",
+  "30206 김지현 · 30126 최서윤",
+  "10106 김서경 · 10205 김승은 · 10210 문가현",
+  "30122 임민혁 · 30104 김민규",
+  "20220 조율 · 30225 주선화"
+];
+/* ④ 심사기준 (각 20점) */
+const CRITS = ["예술성","흥미유발","독창성","공연 적절성","관객 호응도"];
+const MAX = 20;
+const ROOT = "gokseonje2026";   // DB 저장 위치
+
+/* ========================================================= */
+let db=null;
+const cfgOk = !firebaseConfig.apiKey.includes("여기에");
+if(cfgOk){ firebase.initializeApp(firebaseConfig); db=firebase.database(); }
+else document.getElementById("cfgWarn").classList.remove("hidden");
+
+const $=id=>document.getElementById(id);
+const params=new URLSearchParams(location.search);
+const isHost=params.get("role")==="host";
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v);}catch(e){return null}}
+
+/* ---------------- 심사위원 ---------------- */
+let judgeId=ls("gs_judgeId");
+if(!judgeId){judgeId="j"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);ls("gs_judgeId",judgeId);}
+let scores=TEAMS.map(()=>CRITS.map(()=>null));
+let memos=TEAMS.map(()=>"");
+
+function buildJudge(){
+  $("judgeView").classList.remove("hidden");
+  $("submitBar").classList.remove("hidden");
+  // 임시저장 복원
+  try{const d=JSON.parse(ls("gs_draft")||"null");if(d&&d.s&&d.s.length===TEAMS.length){scores=d.s;memos=d.m||memos;}}catch(e){}
+  $("judgeName").value=ls("gs_name")||"";
+  $("judgeName").addEventListener("input",()=>ls("gs_name",$("judgeName").value));
+  let h="";
+  TEAMS.forEach((t,i)=>{
+    h+=`<div class="card"><div class="team-h"><span class="no">${i+1}번</span><span class="mem">${esc(t)}</span><span class="tot" id="tot${i}">0<small>/100</small></span></div>`;
+    CRITS.forEach((c,j)=>{
+      h+=`<div class="crit"><span class="nm">${c}</span><div class="ctl">
+        <button type="button" onclick="step(${i},${j},-1)">−</button>
+        <input type="number" inputmode="numeric" min="0" max="${MAX}" id="s${i}_${j}" oninput="setVal(${i},${j},this.value)">
+        <button type="button" onclick="step(${i},${j},1)">+</button>
+        <span class="mx">/ ${MAX}</span></div></div>`;
+    });
+    h+=`<div class="crit"><span class="nm">비고</span><div class="ctl"><textarea id="m${i}" placeholder="(선택)" oninput="memos[${i}]=this.value;saveDraft()"></textarea></div></div></div>`;
+  });
+  $("teamCards").innerHTML=h;
+  TEAMS.forEach((t,i)=>{CRITS.forEach((c,j)=>{const v=scores[i][j];$(`s${i}_${j}`).value=v===null?"":v;});$(`m${i}`).value=memos[i]||"";});
+  refresh();
+  if(ls("gs_submitted")==="1") showDone();
+}
+function setVal(i,j,raw){
+  let el=$(`s${i}_${j}`);
+  if(raw===""||raw===null){scores[i][j]=null;}
+  else{let v=Math.round(Number(raw));if(isNaN(v))v=null;else{if(v>MAX)v=MAX;if(v<0)v=0;}scores[i][j]=v;if(v!==null&&String(v)!==String(raw))el.value=v;}
+  saveDraft();refresh();
+}
+function step(i,j,d){
+  let v=scores[i][j];
+  v = v===null ? (d>0?MAX:MAX-1) : Math.min(MAX,Math.max(0,v+d));
+  scores[i][j]=v;$(`s${i}_${j}`).value=v;saveDraft();refresh();
+}
+function saveDraft(){ls("gs_draft",JSON.stringify({s:scores,m:memos}));}
+function refresh(){
+  let filled=0,total=TEAMS.length*CRITS.length;
+  TEAMS.forEach((t,i)=>{
+    let sum=0;
+    CRITS.forEach((c,j)=>{const v=scores[i][j];const el=$(`s${i}_${j}`);if(v!==null){filled++;sum+=v;el.classList.remove("empty");}else el.classList.add("empty");});
+    $(`tot${i}`).innerHTML=`${sum}<small>/100</small>`;
+  });
+  $("progress").textContent=`${filled} / ${total} 칸 입력`+(filled===total?" ✔ 모두 입력됨":"");
+}
+function submitScores(){
+  if(!db){alert("Firebase 설정이 필요합니다.");return;}
+  const name=$("judgeName").value.trim();
+  if(!name){alert("심사위원 성함을 입력해 주세요.");$("judgeName").focus();window.scrollTo(0,0);return;}
+  for(let i=0;i<TEAMS.length;i++)for(let j=0;j<CRITS.length;j++){
+    if(scores[i][j]===null){alert(`${i+1}번 팀의 '${CRITS[j]}' 점수가 비어 있습니다.`);const el=$(`s${i}_${j}`);el.scrollIntoView({block:"center"});el.focus();return;}
+  }
+  const sums=scores.map(r=>r.reduce((a,b)=>a+b,0));
+  if(!confirm(`${name} 심사위원님, 제출할까요?\n\n`+sums.map((s,i)=>`${i+1}번 팀: ${s}점`).join("\n")))return;
+  $("submitBtn").disabled=true;$("submitBtn").textContent="제출 중...";
+  db.ref(`${ROOT}/judges/${judgeId}`).set({name,scores,memos,time:Date.now()})
+    .then(()=>{ls("gs_submitted","1");showDone();})
+    .catch(e=>alert("제출 실패: "+e.message+"\n인터넷 연결을 확인하고 다시 눌러 주세요."))
+    .finally(()=>{$("submitBtn").disabled=false;$("submitBtn").textContent="다시 제출하기";});
+}
+function showDone(){
+  $("teamCards").classList.add("hidden");$("nameCard").classList.add("hidden");$("submitBar").classList.add("hidden");
+  $("doneCard").classList.remove("hidden");window.scrollTo(0,0);
+}
+function editAgain(){
+  $("teamCards").classList.remove("hidden");$("nameCard").classList.remove("hidden");$("submitBar").classList.remove("hidden");
+  $("doneCard").classList.add("hidden");$("submitBtn").textContent="다시 제출하기";
+}
+
+/* ---------------- 심사위원장 ---------------- */
+let lastData={};
+function hostLogin(){
+  if($("pw").value===HOST_PW){
+    try{sessionStorage.setItem("gs_host","1")}catch(e){}
+    startHost();
+  } else $("pwErr").classList.remove("hidden");
+}
+function startHost(){
+  $("hostLogin").classList.add("hidden");$("hostView").classList.remove("hidden");
+  $("hdrSub").textContent="심사위원장 · 실시간 합산 결과";
+  if(!db)return;
+  db.ref(`${ROOT}/judges`).on("value",snap=>{lastData=snap.val()||{};renderHost();});
+}
+function rankOf(arr){ // 높은 점수 1등, 동점 공동순위
+  return arr.map(v=>1+arr.filter(x=>x>v).length);
+}
+function renderHost(){
+  const judges=Object.entries(lastData).sort((a,b)=>(a[1].time||0)-(b[1].time||0));
+  $("cnt").textContent=`(${judges.length}명 제출)`;
+  $("noSub").classList.toggle("hidden",judges.length>0);
+  $("chips").innerHTML=judges.map(([id,j])=>`<span class="chip">✔ ${esc(j.name)} <button title="이 제출 삭제" onclick="delJudge('${id}')">✕</button></span>`).join("");
+
+  const n=judges.length;
+  const teamTot=TEAMS.map((t,i)=>judges.reduce((a,[,j])=>a+j.scores[i].reduce((x,y)=>x+y,0),0));
+  const critTot=TEAMS.map((t,i)=>CRITS.map((c,k)=>judges.reduce((a,[,j])=>a+j.scores[i][k],0)));
+  const ranks=rankOf(teamTot);
+  const order=TEAMS.map((t,i)=>i).sort((a,b)=>ranks[a]-ranks[b]||a-b);
+  const medal=r=>r===1?"🥇":r===2?"🥈":r===3?"🥉":"";
+
+  // 최종 순위표
+  let h=`<tr><th>순위</th><th>팀</th><th class="l">참가자</th>${judges.map(([,j])=>`<th>${esc(j.name)}</th>`).join("")}<th>총점</th><th>평균</th></tr>`;
+  order.forEach(i=>{
+    h+=`<tr class="${ranks[i]===1&&n?"rank1":""}"><td class="rk"><span class="medal">${n?medal(ranks[i]):""}</span> ${n?ranks[i]:"-"}</td><td>${i+1}번</td><td class="l">${esc(TEAMS[i])}</td>
+      ${judges.map(([,j])=>`<td>${j.scores[i].reduce((x,y)=>x+y,0)}</td>`).join("")}
+      <td><b>${teamTot[i]}</b></td><td>${n?(teamTot[i]/n).toFixed(1):"-"}</td></tr>`;
+  });
+  $("rankTable").innerHTML=h;
+
+  // 동점 안내
+  const ties={};ranks.forEach((r,i)=>{(ties[r]=ties[r]||[]).push(i+1)});
+  const tieList=Object.entries(ties).filter(([,a])=>a.length>1);
+  if(n&&tieList.length){$("tieNote").classList.remove("hidden");$("tieNote").innerHTML="⚠️ 동점 발생: "+tieList.map(([r,a])=>`공동 ${r}위 (${a.join("번, ")}번 팀)`).join(" / ")+"<br>동점 처리 기준은 심사위원회에서 결정해 주세요. (아래 '심사기준별 합계' 참고)";}
+  else $("tieNote").classList.add("hidden");
+
+  // 기준별 합계
+  let c=`<tr><th>팀</th>${CRITS.map(x=>`<th>${x}</th>`).join("")}<th>총점</th><th>순위</th></tr>`;
+  TEAMS.forEach((t,i)=>{c+=`<tr><td>${i+1}번</td>${critTot[i].map(v=>`<td>${v}</td>`).join("")}<td><b>${teamTot[i]}</b></td><td>${n?ranks[i]:"-"}</td></tr>`;});
+  $("critTable").innerHTML=c;
+
+  // 심사위원별
+  $("perJudge").innerHTML=judges.length?judges.map(([,j])=>{
+    const sums=j.scores.map(r=>r.reduce((a,b)=>a+b,0));const jr=rankOf(sums);
+    const tm=new Date(j.time).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
+    return `<div style="margin-bottom:14px"><b>${esc(j.name)}</b> <span style="color:var(--sub);font-size:12px">(${tm} 제출)</span>
+    <div class="scroll"><table><tr><th>팀</th>${CRITS.map(x=>`<th>${x}</th>`).join("")}<th>총점</th><th>순위</th><th>비고</th></tr>
+    ${TEAMS.map((t,i)=>`<tr><td>${i+1}번</td>${j.scores[i].map(v=>`<td>${v}</td>`).join("")}<td><b>${sums[i]}</b></td><td>${jr[i]}</td><td class="l">${esc((j.memos||[])[i]||"")}</td></tr>`).join("")}
+    </table></div></div>`;
+  }).join(""):`<div class="notice">제출된 채점표가 없습니다.</div>`;
+}
+function delJudge(id){
+  const j=lastData[id];if(!j)return;
+  if(confirm(`${j.name} 심사위원의 제출을 삭제할까요?`))db.ref(`${ROOT}/judges/${id}`).remove();
+}
+function resetAll(){
+  if(!confirm("모든 심사 결과를 삭제합니다. 정말 초기화할까요?"))return;
+  if(prompt("확인을 위해 비밀번호를 다시 입력하세요")!==HOST_PW){alert("비밀번호가 틀렸습니다.");return;}
+  db.ref(`${ROOT}/judges`).remove().then(()=>alert("초기화되었습니다.\n※ 심사위원 폰에 남은 '제출 완료' 표시는 각자 '점수 수정하기'로 다시 제출하면 됩니다."));
+}
+function copyText(t,msg){
+  if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(t).then(()=>alert(msg),()=>prompt("복사하세요",t));
+  else prompt("복사하세요",t);
+}
+function copyJudgeLink(){copyText(location.origin+location.pathname,"심사위원용 링크가 복사되었습니다. 메신저에 붙여넣으세요.");}
+function copyResult(){
+  const judges=Object.values(lastData);const n=judges.length;
+  const tot=TEAMS.map((t,i)=>judges.reduce((a,j)=>a+j.scores[i].reduce((x,y)=>x+y,0),0));
+  const r=rankOf(tot);
+  const lines=TEAMS.map((t,i)=>i).sort((a,b)=>r[a]-r[b]||a-b).map(i=>`${r[i]}위 | ${i+1}번 ${TEAMS[i]} | 총점 ${tot[i]} (평균 ${n?(tot[i]/n).toFixed(1):0})`);
+  copyText(`[2026 곡선제 예능발표회 심사결과] 심사위원 ${n}명\n`+lines.join("\n"),"결과가 복사되었습니다.");
+}
+
+/* ---------------- 시작 ---------------- */
+if(isHost){
+  let ok=false;try{ok=sessionStorage.getItem("gs_host")==="1"}catch(e){}
+  $("hdrSub").textContent="심사위원장 화면";
+  if(ok)startHost();else $("hostLogin").classList.remove("hidden");
+  $("pw").addEventListener("keydown",e=>{if(e.key==="Enter")hostLogin();});
+}else buildJudge();
+</script>
+</body>
+</html>
