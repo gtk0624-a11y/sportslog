@@ -35,7 +35,7 @@
   .btn:disabled{opacity:.5}
   .team-h{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
   .team-h .no{background:var(--main);color:var(--gold);border-radius:12px;width:46px;height:46px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;white-space:nowrap;flex:none}
-  .team-h .mem{flex:1;font-size:15px;font-weight:700;color:var(--ink);line-height:1.45;white-space:pre-line;padding-top:2px}
+  .team-h .mem{flex:1;font-size:15px;font-weight:700;color:var(--ink);line-height:1.5;padding-top:2px}
   .team-h .tot{font-size:24px;font-weight:900;color:var(--main);white-space:nowrap;background:var(--gold2);border-radius:12px;padding:4px 10px}
   .team-h .tot small{font-size:12px;color:var(--sub);font-weight:500}
   .crit{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px dashed var(--line)}
@@ -86,7 +86,7 @@
   .rl.top3{background:#fbf0e6;border-color:#e6c3a0}
   .rl-rank{width:62px;flex:none;text-align:center;font-size:20px;line-height:1.1}
   .rl-rank b{display:block;font-size:17px;color:var(--main)}
-  .rl-team{flex:1;font-size:15px;font-weight:700;line-height:1.45;white-space:pre-line}
+  .rl-team{flex:1;font-size:15px;font-weight:700;line-height:1.5}
   .rl-no{display:inline-block;background:var(--main);color:var(--gold);border-radius:6px;padding:0 6px;font-size:12px;margin-right:6px;vertical-align:1px}
   .rl-score{font-size:26px;font-weight:900;color:var(--main);white-space:nowrap}
   .rl-score small{font-size:13px;font-weight:600;color:var(--sub);margin-left:2px}
@@ -120,7 +120,7 @@
   .drum-img{height:22vh;margin-bottom:2vh;animation:shake .14s infinite}
   @keyframes shake{0%{transform:translate(0,0) rotate(-2deg)}50%{transform:translate(3px,-3px) rotate(2deg)}100%{transform:translate(-3px,2px) rotate(0)}}
   .rv-rank{font-size:clamp(36px,7vw,130px);font-weight:900;color:var(--gold);animation:pop .6s cubic-bezier(.2,1.6,.4,1) both;line-height:1}
-  .rv-team{font-size:clamp(24px,4.4vw,84px);font-weight:900;line-height:1.25;margin-top:1.5vh;white-space:pre-line;animation:pop .6s .15s both cubic-bezier(.2,1.6,.4,1)}
+  .rv-team{font-size:clamp(22px,3.8vw,72px);font-weight:900;line-height:1.25;margin-top:1.5vh;animation:pop .6s .15s both cubic-bezier(.2,1.6,.4,1)}
   .rv-team+.rv-team{margin-top:.6vh}
   .rv-score{font-size:clamp(18px,2.8vw,50px);margin-top:1.2vh;animation:fade .5s .5s both;opacity:.95}
   .rv-score b{color:var(--gold)}
@@ -137,9 +137,21 @@
   .final h2{font-size:clamp(26px,4vw,70px);margin:0 0 2vh;color:var(--gold)}
   .final .row2{display:flex;align-items:center;gap:2vw;font-size:clamp(16px,2.3vw,40px);font-weight:800;padding:.8vh 2vw;border-radius:16px;margin:.6vh 0;background:rgba(255,255,255,.08);min-width:60vw;text-align:left;animation:fade .4s both}
   .final .row2 .r{color:var(--gold);width:6em}
-  .final .row2 .t{flex:1;white-space:pre-line}
+  .final .row2 .t{flex:1}
   .conf{position:absolute;top:-4vh;width:12px;height:18px;z-index:1;pointer-events:none;animation:fall linear forwards}
   @keyframes fall{to{transform:translateY(112vh) rotate(900deg)}}
+  .mb{display:inline-block;white-space:nowrap;margin:1px 8px 1px 0}
+  .mb i{font-style:normal;font-size:.72em;font-weight:600;opacity:.6;margin-right:.3em;letter-spacing:-.2px}
+  .rv-team{display:flex;flex-wrap:wrap;justify-content:center;gap:.4em .5em}
+  .rv-team .mb{margin:0;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:.5em;padding:.12em .45em}
+  .rv-team .mb i{opacity:.75;color:var(--gold)}
+  .final{width:100%;max-width:1400px;max-height:76vh;overflow:auto;padding:0 1vw}
+  .final .row2{flex-wrap:wrap;align-items:flex-start}
+  .final .row2 .s{white-space:nowrap}
+  .final .row2 .t .mb{margin-right:1em}
+  .final .fm{flex-basis:100%;display:flex;flex-wrap:wrap;gap:.6vh .8vw;padding-left:calc(6em + 2vw);margin-top:.4vh}
+  .final .fm span{background:#fff;color:#16213e;border-radius:14px;padding:.3vh .9vw;font-size:clamp(12px,1.25vw,22px);font-weight:600;position:relative}
+  .final .fm span:nth-child(even){background:var(--gold2)}
   .big-done{text-align:center;padding:30px 10px}
   .big-done img{width:150px;animation:bob 2.2s ease-in-out infinite}
   .big-done h2{font-size:24px;color:var(--main)}
@@ -308,6 +320,9 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v);}catch(e){return null}}
 const uid=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function splitMembers(name){return String(name||"").split(/\s*(?:·|\/|,|\n)\s*/).map(x=>x.trim()).filter(Boolean);}
+function memHTML(name){return splitMembers(name).map(p=>{const m=p.match(/^(\d{4,6})\s*(.+)$/);return `<span class="mb">${m?`<i>${esc(m[1])}</i>${esc(m[2])}`:esc(p)}</span>`;}).join("");}
+function namesOnly(name){return splitMembers(name).map(p=>p.replace(/^\d{4,6}\s*/,"")).join("·");}
 const isHost=new URLSearchParams(location.search).get("role")==="host";
 
 let db=null;
@@ -347,7 +362,7 @@ function isComplete(){return config.teams.every(t=>config.crits.every(c=>gv(t.id
 function renderJudge(){
   let h="";
   config.teams.forEach((t,i)=>{
-    h+=`<div class="card"><div class="team-h"><span class="no">${i+1}번</span><span class="mem">${esc(t.name)}</span><span class="tot" id="tot_${t.id}">0<small>/${maxTotal()}</small></span></div>`;
+    h+=`<div class="card"><div class="team-h"><span class="no">${i+1}번</span><span class="mem">${memHTML(t.name)}</span><span class="tot" id="tot_${t.id}">0<small>/${maxTotal()}</small></span></div>`;
     config.crits.forEach(c=>{
       const v=gv(t.id,c.id);
       h+=`<div class="crit"><span class="nm">${esc(c.name)}</span><div class="ctl">
@@ -453,7 +468,7 @@ function renderHost(){
 
   let h=`<tr><th>순위</th><th>팀</th><th>참가자</th>${judges.map(([,j])=>`<th>${esc(j.name)}</th>`).join("")}<th>총점</th><th>평균</th></tr>`;
   order.forEach(i=>{const t=config.teams[i];
-    h+=`<tr class="${ranks[i]===1&&n?"rank1":""}"><td class="rk">${n?medal(ranks[i])+" "+ranks[i]:"-"}</td><td>${i+1}번</td><td class="l">${esc(t.name)}</td>
+    h+=`<tr class="${ranks[i]===1&&n?"rank1":""}"><td class="rk">${n?medal(ranks[i])+" "+ranks[i]:"-"}</td><td>${i+1}번</td><td class="l">${memHTML(t.name)}</td>
       ${judges.map(([,j],k)=>{const r=sumsByJudge[k][i];return `<td>${r===null?'<span style="color:#dc2626">미채점</span>':r+(isPartial(j,t)?'<span style="color:#dc2626">*</span>':'')}</td>`;}).join("")}
       <td><b>${tot[i]}</b></td><td>${cntJ[i]?(tot[i]/cntJ[i]).toFixed(1):"-"}</td></tr>`;
   });
@@ -462,7 +477,7 @@ function renderHost(){
   // 간결한 순위 목록
   $("rankList").innerHTML=n?order.map(i=>{const t=config.teams[i];const r=ranks[i];
     return `<div class="rl ${r<=3?"top"+r:""}"><div class="rl-rank">${medal(r)||""}<b>${r}위</b></div>
-      <div class="rl-team"><span class="rl-no">${i+1}번</span>${esc(t.name)}</div>
+      <div class="rl-team"><span class="rl-no">${i+1}번</span><br>${memHTML(t.name)}</div>
       <div class="rl-score">${tot[i]}<small>점</small></div></div>`;}).join("")
     :`<div class="notice">제출된 채점표가 없습니다.</div>`;
   $("rankSub").textContent=n?`심사위원 ${n}명 총점 합산 · 1인 만점 ${maxTotal()}점`:"";
@@ -471,7 +486,7 @@ function renderHost(){
   const showName=$("showJudgeName").checked;
   $("memoList").innerHTML=n?order.map(i=>{const t=config.teams[i];
     const ms=judges.map(([,j])=>({nm:j.name,tx:((j.memos||{})[t.id]||"").trim()})).filter(m=>m.tx);
-    return `<div class="ml"><div class="ml-h"><span class="ml-rank">${medal(ranks[i])}${ranks[i]}위</span> <span class="rl-no">${i+1}번</span>${esc(t.name.replace(/\n/g," "))}</div>
+    return `<div class="ml"><div class="ml-h"><span class="ml-rank">${medal(ranks[i])}${ranks[i]}위</span> <span class="rl-no">${i+1}번</span>${esc(namesOnly(t.name))}</div>
       ${ms.length?ms.map(m=>`<div class="ml-q">“${esc(m.tx)}”${showName?`<span class="ml-by">— ${esc(m.nm)}</span>`:""}</div>`).join(""):`<div class="sub">작성된 심사평이 없습니다.</div>`}</div>`;}).join("")
     :`<div class="notice">제출된 채점표가 없습니다.</div>`;
 
@@ -563,12 +578,12 @@ function stepHTML(g,anim){
   const memos=g.flatMap(t=>t.memos).slice(0,4);
   return `<div class="${r===1?"win":""}">${r===1?'<img class="win-img" src="kkumsong.png" alt="">':''}
     <div class="rv-rank">${medal(r)} ${rankLabel(g)}</div>
-    ${g.map(t=>`<div class="rv-team">${esc(t.name)}</div>`).join("")}
+    ${g.map(t=>`<div class="rv-team">${memHTML(t.name)}</div>`).join("")}
     <div class="rv-score">총점 <b>${g[0].tot}</b>점</div>
     ${memos.length?`<div class="bubbles">${memos.map((m,k)=>`<div class="bub" style="animation-delay:${anim?1.1+k*0.7:0}s">“${esc(m)}”</div>`).join("")}</div>`:""}</div>`;
 }
 function renderBoard(){
-  $("board").innerHTML=showSteps.slice(0,showIdx+1).map(g=>`<span class="b"><b>${rankLabel(g)}</b>${esc(g.map(t=>t.name.split("\n")[0]).join(", "))}</span>`).reverse().join("");
+  $("board").innerHTML=showSteps.slice(0,showIdx+1).map(g=>`<span class="b"><b>${rankLabel(g)}</b>${esc(g.map(t=>namesOnly(t.name)).join(" / "))}</span>`).reverse().join("");
 }
 function showNext(){
   if(showBusy||$("show").classList.contains("hidden"))return;
@@ -595,7 +610,7 @@ function showPrev(){
 function showFinal(){
   $("board").innerHTML="";
   const list=[...showSteps].reverse();
-  $("stage").innerHTML=`<div class="final"><h2>🏆 최종 결과</h2>${list.map((g,k)=>`<div class="row2" style="animation-delay:${k*0.12}s"><span class="r">${medal(g[0].rank)} ${rankLabel(g)}</span><span class="t">${esc(g.map(t=>t.name.replace(/\n/g," ")).join(" / "))}</span><span>${g[0].tot}점</span></div>`).join("")}<p style="opacity:.8;margin-top:2vh;font-size:clamp(14px,1.8vw,30px)">모든 참가자 여러분, 수고 많았습니다! 👏</p></div>`;
+  $("stage").innerHTML=`<div class="final"><h2>🏆 최종 결과</h2>${list.map((g,k)=>`<div class="row2" style="animation-delay:${k*0.12}s"><span class="r">${medal(g[0].rank)} ${rankLabel(g)}</span><span class="t">${g.map(t=>memHTML(t.name)).join('<span class="mb">/</span>')}</span><span class="s">${g[0].tot}점</span>${(()=>{const ms=g.flatMap(t=>t.memos);return ms.length?`<div class="fm">${ms.map(m=>`<span>💬 ${esc(m)}</span>`).join("")}</div>`:"";})()}</div>`).join("")}<p style="opacity:.8;margin-top:2vh;font-size:clamp(14px,1.8vw,30px)">모든 참가자 여러분, 수고 많았습니다! 👏</p></div>`;
   showIdx=showSteps.length; // 마지막 이후
 }
 document.addEventListener("keydown",e=>{
