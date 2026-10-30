@@ -152,6 +152,12 @@
   .final .fm{flex-basis:100%;display:flex;flex-wrap:wrap;gap:.6vh .8vw;padding-left:calc(6em + 2vw);margin-top:.4vh}
   .final .fm span{background:#fff;color:#16213e;border-radius:14px;padding:.3vh .9vw;font-size:clamp(12px,1.25vw,22px);font-weight:600;position:relative}
   .final .fm span:nth-child(even){background:var(--gold2)}
+  .cnt-big{display:flex;align-items:baseline;gap:6px;font-weight:800;font-size:18px}
+  .cnt-big b{font-size:40px;color:var(--main);line-height:1}
+  .cnt-big small{margin-left:auto;font-size:13px;color:#92400e;font-weight:600}
+  .rl-avg{display:block;font-size:12px;font-weight:600;color:var(--sub);text-align:right}
+  .ml details summary{cursor:pointer;font-size:13px;color:var(--main);font-weight:700;margin:4px 0}
+  .ml-cnt{font-size:12px;color:var(--sub);font-weight:600;margin-left:4px}
   .big-done{text-align:center;padding:30px 10px}
   .big-done img{width:150px;animation:bob 2.2s ease-in-out infinite}
   .big-done h2{font-size:24px;color:var(--main)}
@@ -205,8 +211,10 @@
       <div style="font-size:13px;opacity:.85;margin-top:8px;line-height:1.5">누르는 순간 결과가 고정되고 전체화면으로 바뀝니다. 클릭·스페이스·→(리모컨) = 다음, ← = 이전, Esc = 나가기</div>
     </div>
     <div class="card noprint">
-      <h2>📋 제출 현황 <span id="cnt" style="color:var(--main)"></span></h2>
-      <div class="chips" id="chips"></div>
+      <div class="cnt-big"><span>📋 제출</span><b id="cntNum">0</b><span>명</span><small id="partCnt"></small></div>
+      <details id="chipBox" style="margin-top:8px" ontoggle="renderHost()"><summary class="sub" style="cursor:pointer">제출자 명단 보기 · 잘못된 제출 삭제</summary>
+        <input type="text" id="chipFind" placeholder="이름 검색" oninput="renderHost()" style="margin:8px 0;padding:8px;font-size:14px">
+        <div class="chips" id="chips"></div></details>
       <div id="noSub" class="notice" style="margin-top:8px">아직 제출한 심사위원이 없습니다. 제출되면 실시간으로 표시됩니다.</div>
     </div>
 
@@ -224,8 +232,8 @@
       <div id="memoList"></div>
     </div>
 
-    <details class="card">
-      <summary>📊 상세 점수 보기 (심사위원별 · 항목별)</summary>
+    <details class="card" id="detailBox" ontoggle="renderHost()">
+      <summary>📊 상세 점수 보기 (항목별 · 심사위원별)</summary>
       <div style="height:10px"></div>
       <div class="scroll"><table id="rankTable"></table></div>
       <h2 style="margin-top:16px">항목별 합계</h2>
@@ -471,25 +479,30 @@ function renderHost(){
   if(!hostStarted)return;
   const {judges,sumsByJudge,tot,cntJ,ranks}=calc();
   const n=judges.length;
-  $("cnt").textContent=`(${n}명 제출)`;
+  $("cntNum").textContent=n;
+  const partN=judges.filter(([,j])=>config.teams.some(t=>isPartial(j,t))).length;
+  $("partCnt").textContent=partN?`⚠ 미완료 ${partN}명`:"";
   $("noSub").classList.toggle("hidden",n>0);
-  $("chips").innerHTML=judges.map(([id,j],k)=>{const part=config.teams.some(t=>isPartial(j,t));
+  const q=($("chipFind").value||"").trim();
+  if($("chipBox").open)$("chips").innerHTML=judges.filter(([,j])=>!q||String(j.name).includes(q)).map(([id,j])=>{const part=config.teams.some(t=>isPartial(j,t));
     return `<span class="chip ${part?"part":""}">${part?"⚠":"✔"} ${esc(j.name)} <button title="이 제출 삭제" onclick="delJudge('${id}')">✕</button></span>`;}).join("");
   const order=config.teams.map((t,i)=>i).sort((a,b)=>ranks[a]-ranks[b]||a-b);
 
-  let h=`<tr><th>순위</th><th>팀</th><th>참가자</th>${judges.map(([,j])=>`<th>${esc(j.name)}</th>`).join("")}<th>총점</th><th>평균</th></tr>`;
+  const detailOpen=$("detailBox").open;
+  if(detailOpen){
+  let h=`<tr><th>순위</th><th>팀</th><th>참가자</th><th>채점 인원</th><th>총점</th><th>평균</th></tr>`;
   order.forEach(i=>{const t=config.teams[i];
     h+=`<tr class="${ranks[i]===1&&n?"rank1":""}"><td class="rk">${n?medal(ranks[i])+" "+ranks[i]:"-"}</td><td>${i+1}번</td><td class="l">${memHTML(t.name)}</td>
-      ${judges.map(([,j],k)=>{const r=sumsByJudge[k][i];return `<td>${r===null?'<span style="color:#dc2626">미채점</span>':r+(isPartial(j,t)?'<span style="color:#dc2626">*</span>':'')}</td>`;}).join("")}
-      <td><b>${tot[i]}</b></td><td>${cntJ[i]?(tot[i]/cntJ[i]).toFixed(1):"-"}</td></tr>`;
+      <td>${cntJ[i]}명</td><td><b>${tot[i]}</b></td><td>${cntJ[i]?(tot[i]/cntJ[i]).toFixed(1):"-"}</td></tr>`;
   });
   $("rankTable").innerHTML=h;
+  }
 
   // 간결한 순위 목록
   $("rankList").innerHTML=n?order.map(i=>{const t=config.teams[i];const r=ranks[i];
     return `<div class="rl ${r<=3?"top"+r:""}"><div class="rl-rank">${medal(r)||""}<b>${r}위</b></div>
       <div class="rl-team"><span class="rl-no">${i+1}번</span><br>${memHTML(t.name)}</div>
-      <div class="rl-score">${tot[i]}<small>점</small></div></div>`;}).join("")
+      <div class="rl-score">${tot[i]}<small>점</small><span class="rl-avg">평균 ${cntJ[i]?(tot[i]/cntJ[i]).toFixed(1):"-"}</span></div></div>`;}).join("")
     :`<div class="notice">제출된 채점표가 없습니다.</div>`;
   $("rankSub").textContent=n?`심사위원 ${n}명 총점 합산 · 1인 만점 ${maxTotal()}점`:"";
 
@@ -498,7 +511,9 @@ function renderHost(){
   $("memoList").innerHTML=n?order.map(i=>{const t=config.teams[i];
     const ms=judges.map(([,j])=>({nm:j.name,tx:((j.memos||{})[t.id]||"").trim()})).filter(m=>m.tx);
     return `<div class="ml"><div class="ml-h"><span class="ml-rank">${medal(ranks[i])}${ranks[i]}위</span> <span class="rl-no">${i+1}번</span>${esc(namesOnly(t.name))}</div>
-      ${ms.length?ms.map(m=>`<div class="ml-q">“${esc(m.tx)}”${showName?`<span class="ml-by">— ${esc(m.nm)}</span>`:""}</div>`).join(""):`<div class="sub">작성된 심사평이 없습니다.</div>`}</div>`;}).join("")
+      ${(()=>{if(!ms.length)return `<div class="sub">작성된 심사평이 없습니다.</div>`;
+        const q1=m=>`<div class="ml-q">“${esc(m.tx)}”${showName?`<span class="ml-by">— ${esc(m.nm)}</span>`:""}</div>`;
+        return `<div class="sub" style="margin:0">발표 화면에는 위 5개가 나옵니다 · 총 ${ms.length}개</div>`+ms.slice(0,5).map(q1).join("")+(ms.length>5?`<details><summary>나머지 ${ms.length-5}개 더 보기</summary>${ms.slice(5).map(q1).join("")}</details>`:"");})()}</div>`;}).join("")
     :`<div class="notice">제출된 채점표가 없습니다.</div>`;
 
   const ties={};ranks.forEach((r,i)=>{(ties[r]=ties[r]||[]).push(i+1)});
@@ -507,8 +522,9 @@ function renderHost(){
   else $("tieNote").classList.add("hidden");
   const miss=n&&judges.some(([,j])=>config.teams.some(t=>isPartial(j,t)));
   $("partNote").classList.toggle("hidden",!miss);
-  if(miss)$("partNote").innerHTML="⚠️ 일부 심사위원이 아직 채점하지 않은 팀/항목이 있습니다(노란 이름표, 점수 옆 * 표시). 모두 다시 제출해야 순위가 공정합니다.";
+  if(miss)$("partNote").innerHTML="⚠️ 일부 심사위원이 새로 추가된 팀/항목을 아직 채점하지 않았습니다. (제출자 명단에서 ⚠ 표시)";
 
+  if(!detailOpen)return;
   let c=`<tr><th>팀</th>${config.crits.map(x=>`<th>${esc(x.name)}<br><small>(${x.max})</small></th>`).join("")}<th>총점</th><th>순위</th></tr>`;
   config.teams.forEach((t,i)=>{
     c+=`<tr><td>${i+1}번</td>${config.crits.map(cr=>`<td>${judges.reduce((a,[,j])=>{const v=((j.scores||{})[t.id]||{})[cr.id];return a+(v==null?0:Number(v));},0)}</td>`).join("")}<td><b>${tot[i]}</b></td><td>${n?ranks[i]:"-"}</td></tr>`;
