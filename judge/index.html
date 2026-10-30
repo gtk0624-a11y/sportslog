@@ -371,7 +371,7 @@ function renderJudge(){
         <button type="button" onclick="step('${t.id}','${c.id}',1)">+</button>
         <span class="mx">/ ${c.max}</span></div></div>`;
     });
-    h+=`<div class="memo"><label for="m_${t.id}">💬 심사평 (선택 · 발표 때 소개될 수 있어요)</label><textarea id="m_${t.id}" rows="2" placeholder="예) 호흡이 완벽했고 무대 장악력이 돋보였어요!" oninput="memos['${t.id}']=this.value;saveDraft()" onblur="memos['${t.id}']=this.value;saveDraft()">${esc(memos[t.id]||"")}</textarea></div></div>`;
+    h+=`<div class="memo"><label for="m_${t.id}">💬 심사평 (선택 · 발표 때 소개될 수 있어요)</label><textarea id="m_${t.id}" rows="2" autocomplete="off" spellcheck="false" placeholder="예) 호흡이 완벽했고 무대 장악력이 돋보였어요!" oninput="memos['${t.id}']=this.value;saveDraft()" onblur="memos['${t.id}']=this.value;saveDraft()">${esc(memos[t.id]||"")}</textarea></div></div>`;
   });
   $("teamCards").innerHTML=h;
   refresh();
@@ -427,6 +427,17 @@ function showForm(){
   $("doneCard").classList.add("hidden");
 }
 function editAgain(){showForm();$("submitBtn").textContent="다시 제출하기";}
+
+/* 입력 중에는 하단 제출바 숨김 + 입력칸을 화면 가운데로 (카톡 등 인앱브라우저 키보드 가림 방지) */
+const FSEL="#teamCards textarea, #teamCards input, #judgeName";
+document.addEventListener("focusin",e=>{
+  if(!e.target.matches||!e.target.matches(FSEL))return;
+  $("submitBar").style.display="none";
+  setTimeout(()=>{try{e.target.scrollIntoView({block:"center",behavior:"smooth"})}catch(_){}},350);
+});
+document.addEventListener("focusout",()=>{
+  setTimeout(()=>{const a=document.activeElement;if(!(a&&a.matches&&a.matches(FSEL)))$("submitBar").style.display="";},150);
+});
 
 /* ================= 심사위원장 ================= */
 let lastData={},hostStarted=false,edit=null,editDirty=false;
