@@ -138,6 +138,16 @@
   .final .row2{display:flex;align-items:center;gap:2vw;font-size:clamp(16px,2.3vw,40px);font-weight:800;padding:.8vh 2vw;border-radius:16px;margin:.6vh 0;background:rgba(255,255,255,.08);min-width:60vw;text-align:left;animation:fade .4s both}
   .final .row2 .r{color:var(--gold);width:6em}
   .final .row2 .t{flex:1}
+  .slot{font-size:clamp(30px,6vw,110px);font-weight:900;min-height:1.3em;padding:.2em .6em;border-radius:.3em;background:rgba(255,255,255,.08);border:3px solid rgba(245,197,24,.5);box-shadow:0 0 40px rgba(245,197,24,.25) inset;filter:blur(.6px)}
+  .slot.lock{filter:none;color:var(--gold);border-color:var(--gold);animation:pop .5s cubic-bezier(.2,1.6,.4,1)}
+  .slot-sub{font-size:clamp(16px,2.2vw,38px);margin-top:2vh;opacity:.8;animation:shake .1s infinite}
+  .spot{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at var(--x,50%) 45%,rgba(255,255,255,.18),transparent 22%);animation:sweep 1.1s ease-in-out infinite alternate}
+  @keyframes sweep{0%{--x:20%;background-position:-30vw 0}100%{background-position:30vw 0}}
+  .f2-t{font-size:clamp(30px,5.5vw,100px);font-weight:900;color:var(--gold);animation:pulse 1s infinite}
+  .f2-row{display:flex;align-items:center;justify-content:center;gap:2.5vw;margin-top:4vh;flex-wrap:nowrap}
+  .f2-c{font-size:clamp(20px,3.2vw,60px);font-weight:900;background:rgba(255,255,255,.1);border:2px solid rgba(255,255,255,.3);border-radius:24px;padding:3vh 2.5vw;animation:pop .6s both cubic-bezier(.2,1.6,.4,1);flex:0 1 38vw}
+  .f2-vs{font-size:clamp(30px,5vw,90px);font-weight:900;color:var(--pink);animation:shake .15s infinite}
+  .f2-q{font-size:clamp(20px,3vw,54px);margin-top:4vh;opacity:.9}
   .conf{position:absolute;top:-4vh;width:12px;height:18px;z-index:1;pointer-events:none;animation:fall linear forwards}
   @keyframes fall{to{transform:translateY(112vh) rotate(900deg)}}
   .mb{display:inline-block;white-space:nowrap;margin:1px 8px 1px 0}
@@ -158,6 +168,11 @@
   .rl-avg{display:block;font-size:12px;font-weight:600;color:var(--sub);text-align:right}
   .ml details summary{cursor:pointer;font-size:13px;color:var(--main);font-weight:700;margin:4px 0}
   .ml-cnt{font-size:12px;color:var(--sub);font-weight:600;margin-left:4px}
+  .jchip{border:0;cursor:pointer;font-family:inherit}
+  .jchip:active{transform:scale(.96)}
+  #jModal{position:fixed;inset:0;z-index:40;background:rgba(15,31,66,.55);display:flex;align-items:flex-start;justify-content:center;padding:5vh 12px;overflow:auto}
+  #jModal.hidden{display:none}
+  .jm-box{width:100%;max-width:640px;margin:0}
   .big-done{text-align:center;padding:30px 10px}
   .big-done img{width:150px;animation:bob 2.2s ease-in-out infinite}
   .big-done h2{font-size:24px;color:var(--main)}
@@ -212,9 +227,9 @@
     </div>
     <div class="card noprint">
       <div class="cnt-big"><span>📋 제출</span><b id="cntNum">0</b><span>명</span><small id="partCnt"></small></div>
-      <details id="chipBox" style="margin-top:8px" ontoggle="renderHost()"><summary class="sub" style="cursor:pointer">제출자 명단 보기 · 잘못된 제출 삭제</summary>
-        <input type="text" id="chipFind" placeholder="이름 검색" oninput="renderHost()" style="margin:8px 0;padding:8px;font-size:14px">
-        <div class="chips" id="chips"></div></details>
+      <div class="sub" style="margin-top:10px">🧑‍⚖️ 심사위원 명단 · 이름을 누르면 상세 점수와 심사평이 보입니다</div>
+      <input type="text" id="chipFind" placeholder="이름 검색" oninput="renderHost()" style="margin:4px 0 8px;padding:8px;font-size:14px">
+      <div class="chips" id="chips"></div>
       <div id="noSub" class="notice" style="margin-top:8px">아직 제출한 심사위원이 없습니다. 제출되면 실시간으로 표시됩니다.</div>
     </div>
 
@@ -233,13 +248,12 @@
     </div>
 
     <details class="card" id="detailBox" ontoggle="renderHost()">
-      <summary>📊 상세 점수 보기 (항목별 · 심사위원별)</summary>
+      <summary>📊 상세 점수 보기 (항목별 합계)</summary>
       <div style="height:10px"></div>
       <div class="scroll"><table id="rankTable"></table></div>
       <h2 style="margin-top:16px">항목별 합계</h2>
       <div class="scroll"><table id="critTable"></table></div>
-      <h2 style="margin-top:16px">심사위원별 점수</h2>
-      <div id="perJudge"></div>
+
     </details>
 
     <!-- 편집 -->
@@ -278,6 +292,7 @@
   <footer>© 김정환 · M.A.D.T (Moral And Digital Teacher)</footer>
 </main>
 
+<div id="jModal" class="hidden" onclick="if(event.target===this)closeJudge()"><div class="jm-box card" id="jmBody"></div></div>
 <div id="show" class="hidden">
   <div class="sh-top">
     <div class="sh-title">2026 곡선 <em>RAS 페스타</em> · 예능발표회 시상</div>
@@ -484,8 +499,9 @@ function renderHost(){
   $("partCnt").textContent=partN?`⚠ 미완료 ${partN}명`:"";
   $("noSub").classList.toggle("hidden",n>0);
   const q=($("chipFind").value||"").trim();
-  if($("chipBox").open)$("chips").innerHTML=judges.filter(([,j])=>!q||String(j.name).includes(q)).map(([id,j])=>{const part=config.teams.some(t=>isPartial(j,t));
-    return `<span class="chip ${part?"part":""}">${part?"⚠":"✔"} ${esc(j.name)} <button title="이 제출 삭제" onclick="delJudge('${id}')">✕</button></span>`;}).join("");
+  $("chips").innerHTML=judges.filter(([,j])=>!q||String(j.name).includes(q)).map(([id,j])=>{const part=config.teams.some(t=>isPartial(j,t));
+    return `<button class="chip jchip ${part?"part":""}" onclick="openJudge('${id}')">${part?"⚠":"✔"} ${esc(j.name)}</button>`;}).join("");
+  if(openJudgeId)openJudge(openJudgeId,true);
   const order=config.teams.map((t,i)=>i).sort((a,b)=>ranks[a]-ranks[b]||a-b);
 
   const detailOpen=$("detailBox").open;
@@ -531,16 +547,32 @@ function renderHost(){
   });
   $("critTable").innerHTML=c;
 
-  $("perJudge").innerHTML=n?judges.map(([,j],k)=>{
+  if(false)judges.map(([,j],k)=>{
     const sums=sumsByJudge[k];const jr=rankOf(sums.map(v=>v??-1));
     const tm=new Date(j.time).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
     return `<div style="margin-bottom:14px"><b>${esc(j.name)}</b> <span style="color:var(--sub);font-size:12px">(${tm} 제출)</span>
     <div class="scroll"><table><tr><th>팀</th>${config.crits.map(x=>`<th>${esc(x.name)}</th>`).join("")}<th>총점</th><th>순위</th><th>심사평</th></tr>
     ${config.teams.map((t,i)=>{const s=(j.scores||{})[t.id]||{};return `<tr><td>${i+1}번</td>${config.crits.map(cr=>`<td>${s[cr.id]??"-"}</td>`).join("")}<td><b>${sums[i]??"-"}</b></td><td>${sums[i]===null?"-":jr[i]}</td><td class="l">${esc((j.memos||{})[t.id]||"")}</td></tr>`;}).join("")}
     </table></div></div>`;
-  }).join(""):`<div class="notice">제출된 채점표가 없습니다.</div>`;
+  });
 }
-function delJudge(id){const j=lastData[id];if(j&&confirm(`${j.name} 심사위원의 제출을 삭제할까요?`))db.ref(`${ROOT}/events/${id}`).remove();}
+let openJudgeId=null;
+function openJudge(id,refresh){
+  const j=lastData[id];
+  if(!j){closeJudge();return;}
+  openJudgeId=id;
+  const sums=config.teams.map(t=>teamSum(j,t));const jr=rankOf(sums.map(v=>v??-1));
+  const tm=j.time?new Date(j.time).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"}):"";
+  $("jmBody").innerHTML=`<h2 style="margin:0 0 4px">🧑‍⚖️ ${esc(j.name)}</h2><div class="sub">${tm} 제출</div>
+    <div class="scroll"><table><tr><th>팀</th>${config.crits.map(x=>`<th>${esc(x.name)}</th>`).join("")}<th>총점</th><th>순위</th></tr>
+    ${config.teams.map((t,i)=>{const sc=(j.scores||{})[t.id]||{};return `<tr><td>${i+1}번</td>${config.crits.map(cr=>`<td>${sc[cr.id]??"-"}</td>`).join("")}<td><b>${sums[i]??"-"}</b></td><td>${sums[i]===null?"-":jr[i]}</td></tr>`;}).join("")}</table></div>
+    <h2 style="margin:14px 0 6px">💬 심사평</h2>
+    ${(()=>{const ms=config.teams.map((t,i)=>({i,tx:((j.memos||{})[t.id]||"").trim()})).filter(m=>m.tx);return ms.length?ms.map(m=>`<div class="ml-q"><b>${m.i+1}번</b> ${esc(namesOnly(config.teams[m.i].name))}<br>“${esc(m.tx)}”</div>`).join(""):'<div class="sub">작성한 심사평이 없습니다.</div>';})()}
+    <div class="row" style="margin-top:14px"><button class="btn gray" onclick="closeJudge()">닫기</button><button class="btn red" onclick="delJudge('${id}')">이 제출 삭제</button></div>`;
+  $("jModal").classList.remove("hidden");
+}
+function closeJudge(){openJudgeId=null;$("jModal").classList.add("hidden");}
+function delJudge(id){const j=lastData[id];if(j&&confirm(`${j.name} 심사위원의 제출을 삭제할까요?`)){closeJudge();db.ref(`${ROOT}/events/${id}`).remove();}}
 function resetAll(){
   if(!confirm("모든 심사 점수를 삭제합니다. (참가팀·항목 설정은 유지) 정말 초기화할까요?"))return;
   if(prompt("확인을 위해 비밀번호를 다시 입력하세요")!==HOST_PW){alert("비밀번호가 틀렸습니다.");return;}
@@ -586,7 +618,7 @@ function openShow(){
   showSnap={n:judges.length,teams:config.teams.map((t,i)=>({no:i+1,name:t.name,tot:tot[i],rank:ranks[i],memos:memoOf(t)}))};
   const rs=[...new Set(ranks)].sort((a,b)=>b-a);
   showSteps=rs.map(r=>showSnap.teams.filter(t=>t.rank===r));
-  showIdx=-1;showBusy=false;
+  showIdx=-1;showBusy=false;finalTwoShown=false;
   try{document.activeElement&&document.activeElement.blur()}catch(e){}
   $("show").classList.remove("hidden");document.body.style.overflow="hidden";
   $("board").innerHTML="";
@@ -612,24 +644,45 @@ function stepHTML(g,anim){
 function renderBoard(){
   $("board").innerHTML=showSteps.slice(0,showIdx+1).map(g=>`<span class="b"><b>${rankLabel(g)}</b>${esc(g.map(t=>namesOnly(t.name)).join(" / "))}</span>`).reverse().join("");
 }
+let finalTwoShown=false;
+function remainingTeams(){return showSteps.slice(showIdx+1).flat();}
 function showNext(){
   if(showBusy||$("show").classList.contains("hidden"))return;
   if(showIdx>=showSteps.length-1){showFinal();return;}
-  showIdx++;const g=showSteps[showIdx];const r=g[0].rank;
-  const ms=r===1?4200:r<=3?2800:1500;
+  const g=showSteps[showIdx+1];const r=g[0].rank;
+  // 최후의 2팀 (1·2위 발표 직전 한 번)
+  const rem=remainingTeams();
+  if(!finalTwoShown&&rem.length===2&&showSteps.length-1-showIdx===2){
+    finalTwoShown=true;
+    $("stage").innerHTML=`<div class="f2"><div class="f2-t">🔥 최후의 2팀 🔥</div><div class="f2-row">${rem.map((t,k)=>`<div class="f2-c" style="animation-delay:${k*0.25}s">${memHTML(t.name)}</div>`).join('<div class="f2-vs">VS</div>')}</div><div class="f2-q">과연 1위는?</div></div>`;
+    heartbeat(2400);return;
+  }
+  showIdx++;
   showBusy=true;
-  $("stage").innerHTML=`<div><img class="drum-img" src="kkumsong.png" alt=""><div class="drum">🥁 두구두구...</div><div class="drum-sub">${rankLabel(g)}는?</div></div>`;
-  drumroll(ms);
-  setTimeout(()=>{
-    crash(r===1);
-    $("stage").innerHTML=stepHTML(g,true);
-    renderBoard();
-    if(r<=3)confetti(r===1?180:70);
-    showBusy=false;
-  },ms);
+  if(r<=3){
+    // 슬롯머신 룰렛
+    const pool=remainingTeams().length?[...g,...remainingTeams()]:[...g];
+    const ms=r===1?5200:r===2?4200:3400;
+    $("stage").innerHTML=`<div class="spot"></div><div style="position:relative"><div class="drum-sub" style="margin-bottom:2vh">${r===1?"👑 대망의 ":""}${rankLabel(g)}는?</div><div class="slot" id="slot"></div><div class="slot-sub">🥁 두구두구두구...</div></div>`;
+    drumroll(ms);heartbeat(ms);
+    const t0=Date.now();let d=55,k=0;const names=pool.map(x=>namesOnly(x.name));
+    const tick=()=>{
+      const el=$("slot");if(!el)return;
+      if(Date.now()-t0+d>=ms-300){ el.innerHTML=esc(g.map(x=>namesOnly(x.name)).join(" / "));el.classList.add("lock");return; }
+      el.textContent=names[k++%names.length];clickSnd();
+      d=Math.min(d*1.09,520);setTimeout(tick,d);
+    };tick();
+    setTimeout(()=>{crash(r===1);$("stage").innerHTML=stepHTML(g,true);renderBoard();confetti(r===1?220:r===2?110:70);if(r===1)setTimeout(()=>confetti(160),1500);showBusy=false;},ms);
+  }else{
+    const ms=1600;
+    $("stage").innerHTML=`<div><img class="drum-img" src="kkumsong.png" alt=""><div class="drum">🥁 두구두구...</div><div class="drum-sub">${rankLabel(g)}는?</div></div>`;
+    drumroll(ms);
+    setTimeout(()=>{crash(false);$("stage").innerHTML=stepHTML(g,true);renderBoard();showBusy=false;},ms);
+  }
 }
 function showPrev(){
   if(showBusy||showIdx<0)return;
+  if(showSteps.length-1-showIdx<=2)finalTwoShown=false;
   showIdx--;
   if(showIdx<0){renderBoard();$("stage").innerHTML=`<div class="intro"><img src="kkumsong.png" alt=""><h1>2026 곡선 <em>RAS 페스타</em><br>예능발표회 시상</h1><div class="go">▶ 시작</div></div>`;return;}
   $("stage").innerHTML=stepHTML(showSteps[showIdx],false);renderBoard();
@@ -657,6 +710,8 @@ function crash(big){if(!soundOn)return;try{const a=ac();const t=a.currentTime;
   const notes=big?[523.25,659.25,783.99,1046.5,1046.5]:[523.25,659.25,783.99];
   notes.forEach((fq,k)=>{const o2=a.createOscillator(),g2=a.createGain();o2.type="triangle";o2.frequency.value=fq;const st=t+0.05+k*(big?0.16:0.11);const len=(k===notes.length-1)?(big?1.4:0.6):0.18;g2.gain.setValueAtTime(0.0001,st);g2.gain.exponentialRampToValueAtTime(0.25,st+0.02);g2.gain.exponentialRampToValueAtTime(0.001,st+len);o2.connect(g2);g2.connect(a.destination);o2.start(st);o2.stop(st+len+0.05);});
 }catch(e){}}
+function clickSnd(){if(!soundOn)return;try{const a=ac();const t=a.currentTime;const o=a.createOscillator(),g=a.createGain();o.type="square";o.frequency.value=1400+Math.random()*300;g.gain.setValueAtTime(0.06,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.03);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+0.04);}catch(e){}}
+function heartbeat(ms){if(!soundOn)return;try{const a=ac();const t0=a.currentTime;let t=0,gap=0.85;while(t<ms/1000-0.3){[0,0.18].forEach((off,k)=>{const st=t0+t+off;const o=a.createOscillator(),g=a.createGain();o.type="sine";o.frequency.setValueAtTime(70,st);o.frequency.exponentialRampToValueAtTime(40,st+0.15);g.gain.setValueAtTime(k?0.5:0.8,st);g.gain.exponentialRampToValueAtTime(0.001,st+0.2);o.connect(g);g.connect(a.destination);o.start(st);o.stop(st+0.22);});t+=gap;gap=Math.max(0.45,gap*0.9);}}catch(e){}}
 function confetti(n){const cols=["#f5c518","#f8a5b5","#3b82f6","#22c55e","#ffffff","#ef4444"];for(let i=0;i<n;i++){const d=document.createElement("div");d.className="conf";d.style.left=Math.random()*100+"vw";d.style.background=cols[i%cols.length];d.style.animationDuration=(2.5+Math.random()*2.5)+"s";d.style.animationDelay=(Math.random()*0.8)+"s";d.style.borderRadius=Math.random()<.4?"50%":"2px";$("show").appendChild(d);setTimeout(()=>d.remove(),6000);}}
 
 /* ----- 복사 ----- */
