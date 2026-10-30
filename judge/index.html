@@ -125,7 +125,7 @@
   .rv-score{font-size:clamp(18px,2.8vw,50px);margin-top:1.2vh;animation:fade .5s .5s both;opacity:.95}
   .rv-score b{color:var(--gold)}
   .bubbles{margin-top:3vh;display:flex;flex-wrap:wrap;gap:2vh 2vw;justify-content:center;max-width:88vw}
-  .bub{position:relative;background:#fff;color:#16213e;border-radius:26px;padding:1.4vh 1.8vw;font-size:clamp(15px,1.9vw,34px);font-weight:700;line-height:1.4;max-width:40vw;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;animation:bubpop .55s cubic-bezier(.2,1.6,.4,1) forwards}
+  .bub{position:relative;background:#fff;color:#16213e;border-radius:26px;padding:1.2vh 1.6vw;font-size:clamp(14px,1.7vw,30px);font-weight:700;line-height:1.4;max-width:42vw;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;animation:bubpop .55s cubic-bezier(.2,1.6,.4,1) forwards}
   .bub::after{content:"";position:absolute;bottom:-14px;left:28px;border:14px solid transparent;border-top-color:#fff;border-bottom:0}
   .bub:nth-child(even){background:var(--gold2)}
   .bub:nth-child(even)::after{border-top-color:var(--gold2);left:auto;right:28px}
@@ -586,12 +586,12 @@ function toggleSound(){soundOn=!soundOn;$("sndBtn").textContent=soundOn?"🔊":"
 const rankLabel=g=>(g.length>1?"공동 ":"")+g[0].rank+"위";
 function stepHTML(g,anim){
   const r=g[0].rank;
-  const memos=g.flatMap(t=>t.memos).slice(0,4);
+  const memos=g.flatMap(t=>t.memos).slice(0,5);
   return `<div class="${r===1?"win":""}">${r===1?'<img class="win-img" src="kkumsong.png" alt="">':''}
     <div class="rv-rank">${medal(r)} ${rankLabel(g)}</div>
     ${g.map(t=>`<div class="rv-team">${memHTML(t.name)}</div>`).join("")}
     <div class="rv-score">총점 <b>${g[0].tot}</b>점</div>
-    ${memos.length?`<div class="bubbles">${memos.map((m,k)=>`<div class="bub" style="animation-delay:${anim?1.1+k*0.7:0}s">“${esc(m)}”</div>`).join("")}</div>`:""}</div>`;
+    ${memos.length?`<div class="bubbles">${memos.map((m,k)=>`<div class="bub" style="animation-delay:${anim?0.8+k*0.5:0}s">“${esc(m)}”</div>`).join("")}</div>`:""}</div>`;
 }
 function renderBoard(){
   $("board").innerHTML=showSteps.slice(0,showIdx+1).map(g=>`<span class="b"><b>${rankLabel(g)}</b>${esc(g.map(t=>namesOnly(t.name)).join(" / "))}</span>`).reverse().join("");
@@ -621,7 +621,7 @@ function showPrev(){
 function showFinal(){
   $("board").innerHTML="";
   const list=[...showSteps].reverse();
-  $("stage").innerHTML=`<div class="final"><h2>🏆 최종 결과</h2>${list.map((g,k)=>`<div class="row2" style="animation-delay:${k*0.12}s"><span class="r">${medal(g[0].rank)} ${rankLabel(g)}</span><span class="t">${g.map(t=>memHTML(t.name)).join('<span class="mb">/</span>')}</span><span class="s">${g[0].tot}점</span>${(()=>{const ms=g.flatMap(t=>t.memos);return ms.length?`<div class="fm">${ms.map(m=>`<span>💬 ${esc(m)}</span>`).join("")}</div>`:"";})()}</div>`).join("")}<p style="opacity:.8;margin-top:2vh;font-size:clamp(14px,1.8vw,30px)">모든 참가자 여러분, 수고 많았습니다! 👏</p></div>`;
+  $("stage").innerHTML=`<div class="final"><h2>🏆 최종 결과</h2>${list.map((g,k)=>`<div class="row2" style="animation-delay:${k*0.12}s"><span class="r">${medal(g[0].rank)} ${rankLabel(g)}</span><span class="t">${g.map(t=>memHTML(t.name)).join('<span class="mb">/</span>')}</span><span class="s">${g[0].tot}점</span>${(()=>{const ms=g.flatMap(t=>t.memos).slice(0,5);return ms.length?`<div class="fm">${ms.map(m=>`<span>💬 ${esc(m)}</span>`).join("")}</div>`:"";})()}</div>`).join("")}<p style="opacity:.8;margin-top:2vh;font-size:clamp(14px,1.8vw,30px)">모든 참가자 여러분, 수고 많았습니다! 👏</p></div>`;
   showIdx=showSteps.length; // 마지막 이후
 }
 document.addEventListener("keydown",e=>{
