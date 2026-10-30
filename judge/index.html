@@ -97,6 +97,49 @@
   .ml-q{background:#faf8f2;border-left:4px solid var(--gold);border-radius:8px;padding:8px 10px;margin:6px 0;font-size:15px;line-height:1.55;white-space:pre-line}
   .ml-by{display:block;font-size:12px;color:var(--sub);margin-top:3px;text-align:right}
   details.card>summary{list-style:none}
+  #show{position:fixed;inset:0;z-index:50;background:radial-gradient(ellipse at 50% -10%,rgba(245,197,24,.35),transparent 60%),radial-gradient(ellipse at 100% 110%,rgba(248,165,181,.25),transparent 50%),linear-gradient(160deg,#1e3a6e,#0b1630);color:#fff;display:flex;flex-direction:column;overflow:hidden;user-select:none}
+  #show.hidden{display:none}
+  .sh-top{position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;padding:1.6vh 2.5vw}
+  .sh-title{font-size:clamp(15px,2vw,32px);font-weight:800;opacity:.95}
+  .sh-title em{color:var(--gold);font-style:normal}
+  .sh-btns{display:flex;gap:8px}
+  .sh-btns button{background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:10px;padding:6px 12px;font-size:16px}
+  .stage{z-index:2;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 4vw;cursor:pointer;position:relative}
+  .sh-board{position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:.8vw;justify-content:center;padding:1vh 2vw 3vh;min-height:7vh}
+  .sh-board .b{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:.6vh 1.3vw;font-size:clamp(12px,1.35vw,22px);animation:fade .5s both}
+  .sh-board .b b{color:var(--gold);margin-right:.4em}
+  .sh-hint{position:absolute;bottom:.6vh;right:1.5vw;font-size:12px;opacity:.35}
+  .intro img{height:34vh;animation:bob 2.4s ease-in-out infinite}
+  .intro h1{font-size:clamp(28px,5.5vw,100px);margin:2vh 0 0;line-height:1.15}
+  .intro h1 em{color:var(--gold);font-style:normal}
+  .intro p{font-size:clamp(16px,2.2vw,38px);opacity:.85;margin:1.5vh 0 0}
+  .intro .go{margin-top:3vh;display:inline-block;background:var(--gold);color:#16213e;font-weight:900;font-size:clamp(18px,2.4vw,40px);padding:1.4vh 3vw;border-radius:999px;animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+  .drum{font-size:clamp(40px,8vw,150px);font-weight:900;animation:shake .1s infinite}
+  .drum-sub{font-size:clamp(24px,4.5vw,80px);color:var(--gold);margin-top:2vh;font-weight:900}
+  .drum-img{height:22vh;margin-bottom:2vh;animation:shake .14s infinite}
+  @keyframes shake{0%{transform:translate(0,0) rotate(-2deg)}50%{transform:translate(3px,-3px) rotate(2deg)}100%{transform:translate(-3px,2px) rotate(0)}}
+  .rv-rank{font-size:clamp(36px,7vw,130px);font-weight:900;color:var(--gold);animation:pop .6s cubic-bezier(.2,1.6,.4,1) both;line-height:1}
+  .rv-team{font-size:clamp(24px,4.4vw,84px);font-weight:900;line-height:1.25;margin-top:1.5vh;white-space:pre-line;animation:pop .6s .15s both cubic-bezier(.2,1.6,.4,1)}
+  .rv-team+.rv-team{margin-top:.6vh}
+  .rv-score{font-size:clamp(18px,2.8vw,50px);margin-top:1.2vh;animation:fade .5s .5s both;opacity:.95}
+  .rv-score b{color:var(--gold)}
+  .bubbles{margin-top:3vh;display:flex;flex-wrap:wrap;gap:2vh 2vw;justify-content:center;max-width:88vw}
+  .bub{position:relative;background:#fff;color:#16213e;border-radius:26px;padding:1.4vh 1.8vw;font-size:clamp(15px,1.9vw,34px);font-weight:700;line-height:1.4;max-width:40vw;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;animation:bubpop .55s cubic-bezier(.2,1.6,.4,1) forwards}
+  .bub::after{content:"";position:absolute;bottom:-14px;left:28px;border:14px solid transparent;border-top-color:#fff;border-bottom:0}
+  .bub:nth-child(even){background:var(--gold2)}
+  .bub:nth-child(even)::after{border-top-color:var(--gold2);left:auto;right:28px}
+  @keyframes bubpop{0%{opacity:0;transform:scale(.2) translateY(30px)}100%{opacity:1;transform:none}}
+  @keyframes pop{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+  @keyframes fade{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+  .win .rv-team{text-shadow:0 0 30px rgba(245,197,24,.9)}
+  .win-img{height:20vh;animation:bob 1.2s ease-in-out infinite}
+  .final h2{font-size:clamp(26px,4vw,70px);margin:0 0 2vh;color:var(--gold)}
+  .final .row2{display:flex;align-items:center;gap:2vw;font-size:clamp(16px,2.3vw,40px);font-weight:800;padding:.8vh 2vw;border-radius:16px;margin:.6vh 0;background:rgba(255,255,255,.08);min-width:60vw;text-align:left;animation:fade .4s both}
+  .final .row2 .r{color:var(--gold);width:6em}
+  .final .row2 .t{flex:1;white-space:pre-line}
+  .conf{position:absolute;top:-4vh;width:12px;height:18px;z-index:1;pointer-events:none;animation:fall linear forwards}
+  @keyframes fall{to{transform:translateY(112vh) rotate(900deg)}}
   .big-done{text-align:center;padding:30px 10px}
   .big-done img{width:150px;animation:bob 2.2s ease-in-out infinite}
   .big-done h2{font-size:24px;color:var(--main)}
@@ -145,6 +188,10 @@
 
   <!-- ===== 심사위원장 결과 화면 ===== -->
   <section id="hostView" class="hidden">
+    <div class="card noprint" style="background:linear-gradient(135deg,#1e3a6e,#0f1f42);color:#fff">
+      <button class="btn" id="showBtn" style="background:linear-gradient(180deg,#ffd84a,#f5c518);color:#16213e;box-shadow:0 4px 0 #c79c00;font-size:19px" onclick="openShow()">🎬 발표 모드 시작 (큰 화면용)</button>
+      <div style="font-size:13px;opacity:.85;margin-top:8px;line-height:1.5">누르는 순간 결과가 고정되고 전체화면으로 바뀝니다. 클릭·스페이스·→(리모컨) = 다음, ← = 이전, Esc = 나가기</div>
+    </div>
     <div class="card noprint">
       <h2>📋 제출 현황 <span id="cnt" style="color:var(--main)"></span></h2>
       <div class="chips" id="chips"></div>
@@ -210,6 +257,16 @@
   </section>
   <footer>© 김정환 · M.A.D.T (Moral And Digital Teacher)</footer>
 </main>
+
+<div id="show" class="hidden">
+  <div class="sh-top">
+    <div class="sh-title">2026 곡선 <em>RAS 페스타</em> · 예능발표회 시상</div>
+    <div class="sh-btns"><button onclick="toggleSound()" id="sndBtn">🔊</button><button onclick="toggleFS()">⛶</button><button onclick="closeShow()">✕</button></div>
+  </div>
+  <div class="stage" id="stage" onclick="showNext()"></div>
+  <div class="sh-board" id="board"></div>
+  <div class="sh-hint">클릭/스페이스: 다음 · ←: 이전 · Esc: 나가기</div>
+</div>
 
 <div class="bar hidden" id="submitBar">
   <div class="in">
@@ -299,7 +356,7 @@ function renderJudge(){
         <button type="button" onclick="step('${t.id}','${c.id}',1)">+</button>
         <span class="mx">/ ${c.max}</span></div></div>`;
     });
-    h+=`<div class="memo"><label for="m_${t.id}">비고 (선택)</label><textarea id="m_${t.id}" rows="2" placeholder="메모를 입력하세요" oninput="memos['${t.id}']=this.value;saveDraft()" onblur="memos['${t.id}']=this.value;saveDraft()">${esc(memos[t.id]||"")}</textarea></div></div>`;
+    h+=`<div class="memo"><label for="m_${t.id}">💬 심사평 (선택 · 발표 때 소개될 수 있어요)</label><textarea id="m_${t.id}" rows="2" placeholder="예) 호흡이 완벽했고 무대 장악력이 돋보였어요!" oninput="memos['${t.id}']=this.value;saveDraft()" onblur="memos['${t.id}']=this.value;saveDraft()">${esc(memos[t.id]||"")}</textarea></div></div>`;
   });
   $("teamCards").innerHTML=h;
   refresh();
@@ -436,7 +493,7 @@ function renderHost(){
     const sums=sumsByJudge[k];const jr=rankOf(sums.map(v=>v??-1));
     const tm=new Date(j.time).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});
     return `<div style="margin-bottom:14px"><b>${esc(j.name)}</b> <span style="color:var(--sub);font-size:12px">(${tm} 제출)</span>
-    <div class="scroll"><table><tr><th>팀</th>${config.crits.map(x=>`<th>${esc(x.name)}</th>`).join("")}<th>총점</th><th>순위</th><th>비고</th></tr>
+    <div class="scroll"><table><tr><th>팀</th>${config.crits.map(x=>`<th>${esc(x.name)}</th>`).join("")}<th>총점</th><th>순위</th><th>심사평</th></tr>
     ${config.teams.map((t,i)=>{const s=(j.scores||{})[t.id]||{};return `<tr><td>${i+1}번</td>${config.crits.map(cr=>`<td>${s[cr.id]??"-"}</td>`).join("")}<td><b>${sums[i]??"-"}</b></td><td>${sums[i]===null?"-":jr[i]}</td><td class="l">${esc((j.memos||{})[t.id]||"")}</td></tr>`;}).join("")}
     </table></div></div>`;
   }).join(""):`<div class="notice">제출된 채점표가 없습니다.</div>`;
@@ -475,6 +532,90 @@ function saveConfig(){
   if(!confirm(`참가팀 ${teams.length}개, 심사항목 ${crits.length}개(만점 ${crits.reduce((a,c)=>a+c.max,0)}점)로 저장할까요?\n모든 심사위원 폰에 즉시 반영됩니다.`))return;
   db.ref(`${ROOT}/meta`).set({teams,crits,updated:Date.now()}).then(()=>{editDirty=false;alert("저장되었습니다.");});
 }
+
+/* ================= 발표 모드 ================= */
+let showSteps=[],showIdx=-1,showBusy=false,showSnap=null,soundOn=true,AC=null,NB=null;
+function openShow(){
+  const {judges,tot,ranks}=calc();
+  if(!judges.length){alert("제출된 채점표가 없습니다.");return;}
+  if(judges.some(([,j])=>config.teams.some(t=>isPartial(j,t)))&&!confirm("아직 채점이 덜 된 심사위원이 있습니다. 그래도 발표를 시작할까요?"))return;
+  // 결과 고정
+  const memoOf=t=>judges.map(([,j])=>((j.memos||{})[t.id]||"").trim()).filter(Boolean);
+  showSnap={n:judges.length,teams:config.teams.map((t,i)=>({no:i+1,name:t.name,tot:tot[i],rank:ranks[i],memos:memoOf(t)}))};
+  const rs=[...new Set(ranks)].sort((a,b)=>b-a);
+  showSteps=rs.map(r=>showSnap.teams.filter(t=>t.rank===r));
+  showIdx=-1;showBusy=false;
+  try{document.activeElement&&document.activeElement.blur()}catch(e){}
+  $("show").classList.remove("hidden");document.body.style.overflow="hidden";
+  $("board").innerHTML="";
+  $("stage").innerHTML=`<div class="intro"><img src="kkumsong.png" alt=""><h1>2026 곡선 <em>RAS 페스타</em><br>예능발표회 시상</h1><p>참가 ${showSnap.teams.length}팀 · 심사위원 ${showSnap.n}명</p><div class="go">▶ 시작</div></div>`;
+  try{if(document.documentElement.requestFullscreen&&!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});}catch(e){}
+}
+function closeShow(){
+  $("show").classList.add("hidden");document.body.style.overflow="";
+  try{if(document.fullscreenElement)document.exitFullscreen();}catch(e){}
+}
+function toggleFS(){try{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen();}catch(e){}}
+function toggleSound(){soundOn=!soundOn;$("sndBtn").textContent=soundOn?"🔊":"🔇";}
+const rankLabel=g=>(g.length>1?"공동 ":"")+g[0].rank+"위";
+function stepHTML(g,anim){
+  const r=g[0].rank;
+  const memos=g.flatMap(t=>t.memos).slice(0,4);
+  return `<div class="${r===1?"win":""}">${r===1?'<img class="win-img" src="kkumsong.png" alt="">':''}
+    <div class="rv-rank">${medal(r)} ${rankLabel(g)}</div>
+    ${g.map(t=>`<div class="rv-team">${esc(t.name)}</div>`).join("")}
+    <div class="rv-score">총점 <b>${g[0].tot}</b>점</div>
+    ${memos.length?`<div class="bubbles">${memos.map((m,k)=>`<div class="bub" style="animation-delay:${anim?1.1+k*0.7:0}s">“${esc(m)}”</div>`).join("")}</div>`:""}</div>`;
+}
+function renderBoard(){
+  $("board").innerHTML=showSteps.slice(0,showIdx+1).map(g=>`<span class="b"><b>${rankLabel(g)}</b>${esc(g.map(t=>t.name.split("\n")[0]).join(", "))}</span>`).reverse().join("");
+}
+function showNext(){
+  if(showBusy||$("show").classList.contains("hidden"))return;
+  if(showIdx>=showSteps.length-1){showFinal();return;}
+  showIdx++;const g=showSteps[showIdx];const r=g[0].rank;
+  const ms=r===1?4200:r<=3?2800:1500;
+  showBusy=true;
+  $("stage").innerHTML=`<div><img class="drum-img" src="kkumsong.png" alt=""><div class="drum">🥁 두구두구...</div><div class="drum-sub">${rankLabel(g)}는?</div></div>`;
+  drumroll(ms);
+  setTimeout(()=>{
+    crash(r===1);
+    $("stage").innerHTML=stepHTML(g,true);
+    renderBoard();
+    if(r<=3)confetti(r===1?180:70);
+    showBusy=false;
+  },ms);
+}
+function showPrev(){
+  if(showBusy||showIdx<0)return;
+  showIdx--;
+  if(showIdx<0){renderBoard();$("stage").innerHTML=`<div class="intro"><img src="kkumsong.png" alt=""><h1>2026 곡선 <em>RAS 페스타</em><br>예능발표회 시상</h1><div class="go">▶ 시작</div></div>`;return;}
+  $("stage").innerHTML=stepHTML(showSteps[showIdx],false);renderBoard();
+}
+function showFinal(){
+  $("board").innerHTML="";
+  const list=[...showSteps].reverse();
+  $("stage").innerHTML=`<div class="final"><h2>🏆 최종 결과</h2>${list.map((g,k)=>`<div class="row2" style="animation-delay:${k*0.12}s"><span class="r">${medal(g[0].rank)} ${rankLabel(g)}</span><span class="t">${esc(g.map(t=>t.name.replace(/\n/g," ")).join(" / "))}</span><span>${g[0].tot}점</span></div>`).join("")}<p style="opacity:.8;margin-top:2vh;font-size:clamp(14px,1.8vw,30px)">모든 참가자 여러분, 수고 많았습니다! 👏</p></div>`;
+  showIdx=showSteps.length; // 마지막 이후
+}
+document.addEventListener("keydown",e=>{
+  if($("show").classList.contains("hidden"))return;
+  if([" ","Enter","ArrowRight","PageDown","ArrowDown"].includes(e.key)){e.preventDefault();showNext();}
+  else if(["ArrowLeft","PageUp","ArrowUp","Backspace"].includes(e.key)){e.preventDefault();if(showIdx>=showSteps.length){showIdx=showSteps.length-1;$("stage").innerHTML=stepHTML(showSteps[showIdx],false);renderBoard();}else showPrev();}
+  else if(e.key==="Escape")closeShow();
+  else if(e.key==="f"||e.key==="F")toggleFS();
+});
+/* 효과음 (외부 파일 없이 합성) */
+function ac(){if(!AC){AC=new (window.AudioContext||window.webkitAudioContext)();const b=AC.createBuffer(1,AC.sampleRate,AC.sampleRate);const d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;NB=b;}if(AC.state==="suspended")AC.resume();return AC;}
+function noiseHit(t,dur,vol,type,freq,q){const a=ac();const s=a.createBufferSource();s.buffer=NB;const f=a.createBiquadFilter();f.type=type;f.frequency.value=freq;f.Q.value=q||1;const g=a.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0008,t+dur);s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);s.stop(t+dur+0.02);}
+function drumroll(ms){if(!soundOn)return;try{const a=ac();const t0=a.currentTime;const n=Math.floor(ms/42);for(let i=0;i<n;i++){const p=i/n;noiseHit(t0+i*0.042,0.07,0.12+0.75*p*p,"bandpass",170+Math.random()*80,0.9);}}catch(e){}}
+function crash(big){if(!soundOn)return;try{const a=ac();const t=a.currentTime;
+  noiseHit(t,big?2.2:1.4,0.7,"highpass",4000,0.5);
+  const o=a.createOscillator(),g=a.createGain();o.type="sine";o.frequency.setValueAtTime(110,t);o.frequency.exponentialRampToValueAtTime(40,t+0.4);g.gain.setValueAtTime(0.9,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.5);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+0.55);
+  const notes=big?[523.25,659.25,783.99,1046.5,1046.5]:[523.25,659.25,783.99];
+  notes.forEach((fq,k)=>{const o2=a.createOscillator(),g2=a.createGain();o2.type="triangle";o2.frequency.value=fq;const st=t+0.05+k*(big?0.16:0.11);const len=(k===notes.length-1)?(big?1.4:0.6):0.18;g2.gain.setValueAtTime(0.0001,st);g2.gain.exponentialRampToValueAtTime(0.25,st+0.02);g2.gain.exponentialRampToValueAtTime(0.001,st+len);o2.connect(g2);g2.connect(a.destination);o2.start(st);o2.stop(st+len+0.05);});
+}catch(e){}}
+function confetti(n){const cols=["#f5c518","#f8a5b5","#3b82f6","#22c55e","#ffffff","#ef4444"];for(let i=0;i<n;i++){const d=document.createElement("div");d.className="conf";d.style.left=Math.random()*100+"vw";d.style.background=cols[i%cols.length];d.style.animationDuration=(2.5+Math.random()*2.5)+"s";d.style.animationDelay=(Math.random()*0.8)+"s";d.style.borderRadius=Math.random()<.4?"50%":"2px";$("show").appendChild(d);setTimeout(()=>d.remove(),6000);}}
 
 /* ----- 복사 ----- */
 function copyText(t,msg){
