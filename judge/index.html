@@ -80,6 +80,23 @@
   .ed .bs button{width:34px;height:28px;border:1px solid var(--line);border-radius:7px;background:#fff;font-size:13px}
   .ed .bs button.x{color:var(--warn)}
   .sub{font-size:13px;color:var(--sub);margin:4px 0 6px}
+  .rl{display:flex;align-items:center;gap:10px;padding:12px 10px;border-radius:14px;margin-bottom:8px;background:#faf8f2;border:1.5px solid var(--line)}
+  .rl.top1{background:var(--gold2);border-color:var(--gold)}
+  .rl.top2{background:#f1f4f9;border-color:#c5cfdf}
+  .rl.top3{background:#fbf0e6;border-color:#e6c3a0}
+  .rl-rank{width:62px;flex:none;text-align:center;font-size:20px;line-height:1.1}
+  .rl-rank b{display:block;font-size:17px;color:var(--main)}
+  .rl-team{flex:1;font-size:15px;font-weight:700;line-height:1.45;white-space:pre-line}
+  .rl-no{display:inline-block;background:var(--main);color:var(--gold);border-radius:6px;padding:0 6px;font-size:12px;margin-right:6px;vertical-align:1px}
+  .rl-score{font-size:26px;font-weight:900;color:var(--main);white-space:nowrap}
+  .rl-score small{font-size:13px;font-weight:600;color:var(--sub);margin-left:2px}
+  .ml{padding:12px 0;border-top:1px dashed var(--line)}
+  .ml:first-of-type{border-top:0}
+  .ml-h{font-weight:800;font-size:15px;margin-bottom:6px}
+  .ml-rank{color:var(--main)}
+  .ml-q{background:#faf8f2;border-left:4px solid var(--gold);border-radius:8px;padding:8px 10px;margin:6px 0;font-size:15px;line-height:1.55;white-space:pre-line}
+  .ml-by{display:block;font-size:12px;color:var(--sub);margin-top:3px;text-align:right}
+  details.card>summary{list-style:none}
   .big-done{text-align:center;padding:30px 10px}
   .big-done img{width:150px;animation:bob 2.2s ease-in-out infinite}
   .big-done h2{font-size:24px;color:var(--main)}
@@ -135,21 +152,28 @@
     </div>
 
     <div class="card">
-      <h2>🏆 최종 순위 (전체 심사위원 총점 합산)</h2>
-      <div class="scroll"><table id="rankTable"></table></div>
+      <h2>🏆 최종 순위</h2>
+      <div id="rankList"></div>
+      <div class="sub" id="rankSub" style="text-align:right;margin-top:8px"></div>
       <div id="tieNote" class="notice hidden" style="margin-top:8px"></div>
       <div id="partNote" class="notice err hidden" style="margin-top:8px"></div>
     </div>
 
     <div class="card">
-      <h2>📊 심사항목별 합계</h2>
-      <div class="scroll"><table id="critTable"></table></div>
+      <h2>💬 심사평 모음 <span class="sub" style="font-weight:500">(등수 발표용)</span></h2>
+      <label class="sub noprint" style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="showJudgeName" onchange="renderHost()"> 심사위원 이름 표시</label>
+      <div id="memoList"></div>
     </div>
 
-    <div class="card">
-      <h2>🧑‍⚖️ 심사위원별 상세 점수</h2>
+    <details class="card">
+      <summary>📊 상세 점수 보기 (심사위원별 · 항목별)</summary>
+      <div style="height:10px"></div>
+      <div class="scroll"><table id="rankTable"></table></div>
+      <h2 style="margin-top:16px">항목별 합계</h2>
+      <div class="scroll"><table id="critTable"></table></div>
+      <h2 style="margin-top:16px">심사위원별 점수</h2>
       <div id="perJudge"></div>
-    </div>
+    </details>
 
     <!-- 편집 -->
     <details class="card noprint" id="editBox">
@@ -377,6 +401,22 @@ function renderHost(){
       <td><b>${tot[i]}</b></td><td>${cntJ[i]?(tot[i]/cntJ[i]).toFixed(1):"-"}</td></tr>`;
   });
   $("rankTable").innerHTML=h;
+
+  // 간결한 순위 목록
+  $("rankList").innerHTML=n?order.map(i=>{const t=config.teams[i];const r=ranks[i];
+    return `<div class="rl ${r<=3?"top"+r:""}"><div class="rl-rank">${medal(r)||""}<b>${r}위</b></div>
+      <div class="rl-team"><span class="rl-no">${i+1}번</span>${esc(t.name)}</div>
+      <div class="rl-score">${tot[i]}<small>점</small></div></div>`;}).join("")
+    :`<div class="notice">제출된 채점표가 없습니다.</div>`;
+  $("rankSub").textContent=n?`심사위원 ${n}명 총점 합산 · 1인 만점 ${maxTotal()}점`:"";
+
+  // 심사평 모음 (순위 순)
+  const showName=$("showJudgeName").checked;
+  $("memoList").innerHTML=n?order.map(i=>{const t=config.teams[i];
+    const ms=judges.map(([,j])=>({nm:j.name,tx:((j.memos||{})[t.id]||"").trim()})).filter(m=>m.tx);
+    return `<div class="ml"><div class="ml-h"><span class="ml-rank">${medal(ranks[i])}${ranks[i]}위</span> <span class="rl-no">${i+1}번</span>${esc(t.name.replace(/\n/g," "))}</div>
+      ${ms.length?ms.map(m=>`<div class="ml-q">“${esc(m.tx)}”${showName?`<span class="ml-by">— ${esc(m.nm)}</span>`:""}</div>`).join(""):`<div class="sub">작성된 심사평이 없습니다.</div>`}</div>`;}).join("")
+    :`<div class="notice">제출된 채점표가 없습니다.</div>`;
 
   const ties={};ranks.forEach((r,i)=>{(ties[r]=ties[r]||[]).push(i+1)});
   const tieList=Object.entries(ties).filter(([,a])=>a.length>1);
