@@ -467,7 +467,7 @@ function renderPanel(){
   if(step==='roster'){
     h=`<h2>학생 명단</h2><p class="sub">엑셀에서 <b>이름</b>(과 <b>성별</b>) 칸을 복사해 붙여 넣으세요. 한 줄에 한 명이에요. 엑셀 파일에 시트가 여러 개면 시트 이름(1-1, 1-2 …)대로 반을 한꺼번에 만들어요. 성별은 '남'·'여'로 적으면 남녀 짝 배치에 쓰여요. 번호 칸이 있어도 괜찮아요.</p>
     <div class="card"><textarea id="roster" placeholder="예)&#10;김하늘	여&#10;이도윤	남&#10;박서아	여">${esc(S.rosterText)}</textarea>
-    <div class="row"><button class="btn pri" data-act="file">엑셀·CSV 불러오기</button><input type="file" id="fileIn" hidden accept=".xlsx,.xls,.csv,.txt"><button class="btn" data-act="sample">예시 명단 넣기</button><button class="btn" data-act="clearRoster">모두 지우기</button></div>
+    <div class="row"><button class="btn pri" data-act="file">엑셀·CSV 불러오기</button><input type="file" id="fileIn" hidden accept=".xlsx,.xls,.csv,.txt"><button class="btn" data-act="sample">예시 명단 넣기</button><button class="btn" data-act="splitCls">반별로 나누기</button><button class="btn" data-act="clearRoster">모두 지우기</button></div>
     <div class="ok" id="stat">${stat()}</div></div>
     <p class="note">🔒 명단은 이 기기의 브라우저에만 저장되고 서버로 전송되지 않아요.</p>`;
   }else if(step==='shape'){
@@ -588,6 +588,11 @@ refreshAll();
 
 /* ----- 이벤트 ----- */
 $('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-step]');if(!b)return;step=b.dataset.step;pickName='';refreshAll()});
+$('#panel').addEventListener('paste',e=>{
+  if(e.target.id!=='roster')return;
+  const tx=(e.clipboardData||window.clipboardData).getData('text');
+  if(splitRoster(tx)){e.preventDefault();if(!offerSplit(tx)){const ta=e.target;ta.setRangeText(tx,ta.selectionStart,ta.selectionEnd,'end');ta.dispatchEvent(new Event('input',{bubbles:true}))}}
+});
 $('#panel').addEventListener('input',e=>{
   if(e.target.id==='roster'){
     S.rosterText=e.target.value;
@@ -618,6 +623,7 @@ $('#panel').addEventListener('click',e=>{
   const a=b.dataset.act,st=students();
   const lim=(v)=>Math.max(1,Math.min(10,v));
   if(a==='file')$('#fileIn').click();
+  else if(a==='splitCls'){if(!offerSplit(S.rosterText))toast('반 구분(1-1, 1학년 2반, 학번 등)을 찾지 못했어요')}
   else if(a==='sample'){
     const nm='김하늘 여,이도윤 남,박서아 여,최민준 남,정하윤 여,강시우 남,조은서 여,윤지호 남,장수아 여,임도현 남,한지유 여,오주원 남,서예린 여,신우진 남,권나연 여,황준서 남,안소윤 여,송건우 남,류채원 여,문태양 남,배다은 여,홍서진 남,전아린 여,노현우 남'.split(',');
     S.rosterText=nm.map(x=>x.replace(' ','\t')).join('\n');if(S.autoFit)fit();save();refreshAll();
@@ -658,6 +664,75 @@ $('#panel').addEventListener('click',e=>{
   else if(a==='viewRec')showResult(S.records[+b.dataset.i]);
   else if(a==='delRec'){S.records.splice(+b.dataset.i,1);save();refreshAll()}
 });
+
+/* ---------- 전체 명단 → 반별 자동 나누기 ---------- */
+const HDR=/^(학년|반|학급|번호|이름|성명|성별|학번|no|name|번)$/i;
+function splitRoster(text){
+  const raw=text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(l=>l.includes('\t')?l.split('\t').map(x=>x.trim()):l.split(/,|\s+/).map(x=>x.trim()));
+  let gi=-1,ci=-1;
+  for(const r of raw.slice(0,5)){
+    const g=r.findIndex(x=>x==='학년'),c=r.findIndex(x=>/^(반|학급|학년반)$/.test(x));
+    if(c>=0){ci=c;gi=g;break}
+  }
+  const map={},order=[];let cur=null,hit=0,total=0;
+  const add=(cls,line)=>{if(!map[cls]){map[cls]=[];order.push(cls)}map[cls].push(line)};
+  raw.forEach(cells=>{
+    const toks=cells.filter(Boolean);
+    if(!toks.length||toks.every(t=>HDR.test(t)))return;
+    let cls=null,grade=null,rest=[];
+    if(ci>=0&&cells[ci]){
+      const v=cells[ci],g=gi>=0?cells[gi]:'';
+      const m=/^(\d)\s*[-–.]\s*(\d{1,2})$/.exec(v);
+      if(m)cls=m[1]+'-'+(+m[2]);
+      else if(/^\d{1,2}$/.test(v)&&/^\d$/.test(g||''))cls=g+'-'+(+v);
+      else if(/^\d{1,2}$/.test(v))cls=(+v)+'반';
+      rest=toks.filter((t,i)=>{const idx=cells.indexOf(t);return idx!==ci&&idx!==gi});
+    }else{
+      toks.forEach(t=>{
+        let m;
+        if((m=/^(\d)\s*[-–.]\s*(\d{1,2})$/.exec(t)))cls=m[1]+'-'+(+m[2]);
+        else if((m=/^(\d)학년\s*(\d{1,2})반$/.exec(t)))cls=m[1]+'-'+(+m[2]);
+        else if((m=/^(\d)학년$/.exec(t)))grade=m[1];
+        else if((m=/^(\d{1,2})반$/.exec(t)))cls=(grade||'')+(grade?'-':'')+(+m[1])+(grade?'':'반');
+        else if((m=/^([1-3])(\d{2})\d{2}$/.exec(t)))cls=m[1]+'-'+(+m[2]);
+        else if((m=/^([1-3])(\d)\d{2}$/.exec(t)))cls=m[1]+'-'+m[2];
+        else rest.push(t);
+      });
+      if(grade&&cls&&/^\d+반$/.test(cls))cls=grade+'-'+parseInt(cls);
+    }
+    rest=rest.filter(t=>!/^\d+$/.test(t)&&!HDR.test(t));
+    if(cls)cur=cls;
+    if(!rest.length)return;            // 반 이름만 있는 줄
+    total++;
+    if(!cur)return;
+    if(cls)hit++;
+    add(cur,rest.join('\t'));
+  });
+  if(order.length<2||!total)return null;
+  return order.map(n=>[n,map[n]]);
+}
+function applySplit(pairs){
+  save();
+  pairs.forEach(([n,lines])=>{
+    let c=S.classes.find(x=>x.name===n);
+    if(!c){c=newClass(n,S);S.classes.push(c)}
+    c.rosterText=lines.join('\n');c.fixed={};c.front=[];c.first=[];c.conf=[];c.gfixed={};
+    if(c.id===S.cur){S.rosterText=c.rosterText;S.fixed={};S.front=[];S.first=[];S.conf=[];S.gfixed={}}
+  });
+  const first=S.classes.find(c=>c.name===pairs[0][0]).id;
+  pairs.forEach(([n])=>{const c=S.classes.find(x=>x.name===n);switchClass(c.id);if(S.autoFit)fit();save()});
+  switchClass(first);refreshAll();
+  toast(`${pairs.length}개 반으로 나눴어요`);
+}
+function offerSplit(text){
+  const pairs=splitRoster(text);if(!pairs)return false;
+  const exist=pairs.filter(([n])=>S.classes.some(c=>c.name===n&&c.rosterText.trim()&&c.id!==S.cur)).map(p=>p[0]);
+  const msg=`명단에서 ${pairs.length}개 반을 찾았어요.\n\n`+pairs.map(([n,l])=>`· ${n}  ${l.length}명`).join('\n')
+    +(exist.length?`\n\n※ ${exist.join(', ')} 반에는 이미 명단이 있어서 새 명단으로 바뀌어요.`:'')
+    +'\n\n반별로 나눌까요?\n(취소하면 지금 반에 그대로 들어가요)';
+  if(!confirm(msg))return false;
+  applySplit(pairs);return true;
+}
 async function loadFile(f){
   if(!f)return;
   try{
@@ -666,13 +741,11 @@ async function loadFile(f){
       const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
       const texts=wb.SheetNames.map(n=>[n,XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:''}).map(r=>r.join('\t')).join('\n')]);
       if(texts.length>1){
-        save();let firstId=null;
-        texts.forEach(([n,t])=>{let c=S.classes.find(x=>x.name===n);if(!c){c=newClass(n,S);S.classes.push(c)}c.rosterText=t;firstId=firstId||c.id});
-        S.classes.forEach(c=>{if(texts.some(([n])=>n===c.name)){switchClass(c.id);if(S.autoFit)fit();save()}});
-        switchClass(firstId);refreshAll();toast(`시트 ${texts.length}개를 반별로 불러왔어요`);return;
-      }
+        const pairs=texts.map(([n,t])=>[n,t.split(/\n/).filter(l=>l.replace(/\t/g,'').trim())]);
+        if(confirm(`시트 ${pairs.length}개를 반별로 나눌까요?\n\n`+pairs.map(([n,l])=>`· ${n}  ${l.length}줄`).join('\n')+'\n\n(취소하면 첫 시트만 지금 반에 넣어요)')){applySplit(pairs);return}
+      }else if(offerSplit(texts[0][1]))return;
       S.rosterText=texts[0][1];
-    }else S.rosterText=await f.text();
+    }else{const tx=await f.text();if(offerSplit(tx))return;S.rosterText=tx}
     if(S.autoFit)fit();save();refreshAll();toast('명단을 불러왔어요');
   }catch(err){toast('파일을 읽지 못했어요. 엑셀에서 복사해 붙여 넣어 보세요')}
 }
