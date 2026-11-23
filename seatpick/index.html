@@ -190,6 +190,7 @@ textarea{height:300px;resize:vertical;line-height:1.5}
       <button class="big hot" id="bDraw">뽑기!</button>
       <div class="sp"></div>
       <div class="pill"><button id="bAuto">▶▶ 자동 뽑기</button>
+        <span class="note" style="margin:0">쪼는 맛</span><select id="tns" style="width:auto;padding:4px 8px;border-radius:10px"><option value="low">약하게</option><option value="mid">보통</option><option value="high">강하게</option></select>
         <select id="spd" style="width:auto;padding:4px 8px;border-radius:10px"><option value="0.7">느리게</option><option value="1" selected>보통</option><option value="1.8">빠르게</option></select>
         <button id="bSkip">⏭ 건너뛰기</button></div>
     </div>
@@ -228,7 +229,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const KEY='dudu-seat-v1';
 const DEF={rosterText:'',mode:'pair',rows:4,groups:3,genderPair:true,avoidLast:true,autoFit:true,
   fixed:{},front:[],first:[],conf:[],confMode:'around',lockOn:false,pin:'0624',records:[],sound:true,
-  gmode:'count',gcount:6,gsize:4,gbalance:true,gleader:true,gavoid:true,gfixed:{}};
+  gmode:'count',gcount:6,gsize:4,gbalance:true,gleader:true,gavoid:true,gfixed:{},tension:'high'};
 function load(){let o={};try{o=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}return Object.assign(JSON.parse(JSON.stringify(DEF)),o)}
 let S=load();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
@@ -605,7 +606,7 @@ addEventListener('resize',resize);resize();
 const ZT=300;                       // 레일 높이
 const cam={fx:500,fy:400,Z:1,t:.72};
 let camMode='follow',shake=0;
-let gtabs=null,gInfo=null,crane,st,seatOf,geo,prizes,filled,placedAt,order,labelOf,done,busy,auto,token=0,stageOn=false,saved=false,speed=1,confetti=[],stamp=null,audio=null,held=null;
+let spot=null,zb=1,gtabs=null,gInfo=null,crane,st,seatOf,geo,prizes,filled,placedAt,order,labelOf,done,busy,auto,token=0,stageOn=false,saved=false,speed=1,confetti=[],stamp=null,audio=null,held=null;
 const COLORS=['#ffb3c8','#ffd68a','#a9e0c0','#a9d1ff','#d4b8ff','#ffc9a6','#bfe9a5','#ffe27a'];
 
 function P(x,y,z){
@@ -694,6 +695,8 @@ function draw(now){
     ctx.restore();
   });
   drawCrane(now);
+  if(spot){const a=Math.min(1,(now-spot.t0)/500),[sx,sy,sc]=P(spot.x,spot.y,34),g2=ctx.createRadialGradient(sx,sy,40*sc,sx,sy,300*sc);
+    g2.addColorStop(0,'rgba(20,30,20,0)');g2.addColorStop(1,'rgba(20,30,20,.55)');ctx.globalAlpha=a;ctx.fillStyle=g2;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1}
   // 유리 프레임
   [[0,0],[1000,0],[0,770],[1000,770]].forEach(([x,y])=>line([x,y,0],[x,y,340],'rgba(255,255,255,.8)',5*baseZ*cam.Z));
   poly([[360,770,0],[640,770,0],[640,806,0],[360,806,0]],'#2f5d3f');
@@ -728,9 +731,9 @@ function drawCrane(now){
 }
 function camUpdate(){
   let t;
-  if(camMode==='follow')t={fx:crane.x*.75+125,fy:crane.y*.7+120,Z:1.42,t:.8};
-  else if(camMode==='top')t={fx:500,fy:390,Z:.98,t:1.2};
-  else t={fx:500,fy:400,Z:1,t:.72};
+  if(camMode==='follow')t={fx:crane.x*.75+125,fy:crane.y*.7+120,Z:1.42*zb,t:.8};
+  else if(camMode==='top')t={fx:500,fy:390,Z:.98*zb,t:1.2};
+  else t={fx:crane.x*.25+375,fy:crane.y*.25+300,Z:1*zb,t:.72};
   for(const k of ['fx','fy','Z','t'])cam[k]+=(t[k]-cam[k])*.07;
 }
 function frame(now){
@@ -797,7 +800,7 @@ function startGame(){
 function begin(students_,so,gi){
   token++;st=students_;seatOf=so;gInfo=gi||null;gtabs=gi?gi.tabs:null;geo=gi?gi.geo:buildGeo();
   filled=new Array(geo.length).fill(null);placedAt=new Array(geo.length).fill(0);labelOf=new Array(geo.length).fill('');
-  crane={x:500,y:430,L:60,open:1,sway:0};held=null;done=0;busy=false;auto=false;saved=false;confetti=[];stamp=null;shake=0;
+  crane={x:500,y:430,L:60,open:1,sway:0};held=null;spot=null;zb=1;done=0;busy=false;auto=false;saved=false;confetti=[];stamp=null;shake=0;
   // 고정석은 처음부터 자리에 놓여 있음
   const fixedIdx=[];
   st.forEach((s,i)=>{if(!gi&&S.fixed[s.name]===seatOf[i]){filled[seatOf[i]]=s.name;labelOf[seatOf[i]]=s.g;placedAt[seatOf[i]]=-9999;fixedIdx.push(i)}});
@@ -833,18 +836,43 @@ async function runOne(){
     await lowerTo(70,600);
     chip(tag,gtabs?'잡았다! 어느 모둠에 들어갈까?':'잡았다! 어느 자리에 앉게 될까?');sfx('catch');
     const spots=geo.map((_,k)=>k).filter(k=>k!==seatOf[i]&&!filled[k]);
-    const tease=order.length>0?1+Math.floor(Math.random()*3):1;
+    const T=S.tension||'high',cfg={low:{n:[1,1],fake:0,fin:0,cd:false},mid:{n:[1,3],fake:.3,fin:1,cd:false},high:{n:[2,4],fake:.6,fin:2,cd:true}}[T];
+    const lastOne=!order.length;
+    const fakeDrop=async(d,msg)=>{
+      chip(tag,msg);
+      await openTo(1,200);
+      held=null;pz.held=false;pz.dropping=true;pz.x=d.cx;pz.y=d.cy;
+      const z0=ZT-crane.L-pz.r*.9;pz.z=z0;sfx('drop');
+      await tween(320,k=>{pz.z=z0+(34+pz.r-z0)*k*k});
+      shake=4;await waitS(700);
+      chip(tag,'…아니었다! 다시 집는다');sfx('tick');
+      await lowerTo(ZT-(34+pz.r*2+16),380);
+      await openTo(.12,300);sfx('grab');
+      pz.held=true;held=pz;pz.dropping=undefined;
+      await lowerTo(70,500);
+    };
+    let tease=cfg.n[0]+Math.floor(Math.random()*(cfg.n[1]-cfg.n[0]+1));
+    if(!lastOne&&T!=='low')tease=Math.max(1,tease-0);
     for(let t=0;t<tease&&spots.length;t++){
       const d=geo[spots.splice(Math.floor(Math.random()*spots.length),1)[0]];
       await moveTo(d.cx,d.cy,650+rand(0,300));
-      await lowerTo(160,350);sfx('tick');await wobble(.8);await lowerTo(70,280);
+      await lowerTo(160,350);sfx('tick');await wobble(.8);
+      if(Math.random()<cfg.fake||(lastOne&&T==='high'&&t===0)){await lowerTo(180,250);await fakeDrop(d,lastOne?'마지막 한 명이에요… 여기!?':'여기다!?')}
+      else await lowerTo(70,280);
     }
     await moveTo(tgt.cx,tgt.cy,800);
+    spot={x:tgt.cx,y:tgt.cy,t0:performance.now()};
+    if(T!=='low')zb=1.22;
     chip(tag,'놓을까… 말까…');
     await lowerTo(170,520);sfx('drum');await wobble(1.5);await waitS(250);
+    for(let f=0;f<cfg.fin;f++){
+      await openTo(.65,220);sfx('tick');await wobble(.7);
+      await openTo(.12,220);sfx('grab');chip(tag,f?'진짜 놓는다…?':'놓는다…?');await waitS(350);
+    }
+    if(cfg.cd){for(const n of [3,2,1]){chip(tag,n+'…');sfx('drum');await waitS(750)}}
     await lowerTo(200,300);
     // 떨어뜨리기
-    sfx('drop');
+    sfx('drop');spot=null;zb=1;
     pz.dropping=true;pz.z=ZT-crane.L-pz.r*.9;
     const z0=pz.z;
     held=null;pz.held=false;pz.x=tgt.cx;pz.y=tgt.cy;
@@ -874,7 +902,7 @@ function finish(){
 let lastRec=null;
 function skipAll(){
   if(!order.length||saved)return;
-  token++;busy=false;auto=false;held=null;
+  token++;busy=false;auto=false;held=null;spot=null;zb=1;
   order.forEach(i=>{const k=seatOf[i];filled[k]=st[i].name;labelOf[k]=st[i].g;placedAt[k]=-9999;const p=prizes.find(q=>q.i===i);p.gone=true});
   order=[];crane.L=60;crane.x=500;crane.y=430;crane.sway=0;updateHud();finish();
 }
@@ -883,6 +911,7 @@ $('#bDraw').onclick=()=>{try{audio=audio||new (window.AudioContext||window.webki
 $('#bAuto').onclick=()=>{auto=!auto;updateHud();if(auto&&!busy)runOne()};
 $('#bSkip').onclick=skipAll;
 $('#spd').onchange=e=>speed=+e.target.value;
+$('#tns').value=S.tension||'high';$('#tns').onchange=e=>{S.tension=e.target.value;save()};
 $('#bSound').onclick=()=>{S.sound=!S.sound;save();$('#bSound').textContent=S.sound?'🔊':'🔇'};
 $('#bSound').textContent=S.sound?'🔊':'🔇';
 $('#bFull').onclick=()=>{try{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}catch(e){}};
