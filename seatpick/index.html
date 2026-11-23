@@ -409,14 +409,14 @@ let toastT;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2600)}
 function modal(html){const m=$('#modal');m.innerHTML=`<div class="mbox">${html}</div>`;m.classList.add('on');return m}
 function closeModal(){$('#modal').classList.remove('on')}
-function guard(cb){
+function guard(cb,no){
   if(!S.lockOn) return cb();
   const m=modal(`<h3>🔒 교사 확인</h3><p class="sub">비밀번호를 입력해 주세요.</p><input type="password" id="pinIn" inputmode="numeric" maxlength="12"><div class="row"><button class="btn pri" id="pinOk">확인</button><button class="btn" id="pinNo">취소</button></div>`);
-  const inp=$('#pinIn');inp.focus();
-  const ok=()=>{if(inp.value===S.pin){closeModal();cb()}else{toast('비밀번호가 달라요');inp.value=''}};
-  $('#pinOk').onclick=ok;$('#pinNo').onclick=closeModal;inp.onkeydown=e=>{if(e.key==='Enter')ok()};
+  window._pinNo=no||null;const inp=$('#pinIn');inp.focus();
+  const ok=()=>{if(inp.value===S.pin){window._pinNo=null;closeModal();cb()}else{toast('비밀번호가 달라요');inp.value=''}};
+  $('#pinOk').onclick=ok;$('#pinNo').onclick=()=>{closeModal();no&&no()};inp.onkeydown=e=>{if(e.key==='Enter')ok()};
 }
-$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal'){closeModal();if(window._pinNo){const f=window._pinNo;window._pinNo=null;f()}}});
 
 /* =====================================================================
    준비 화면
@@ -587,7 +587,7 @@ $('#clsbar').addEventListener('click',e=>{
 refreshAll();
 
 /* ----- 이벤트 ----- */
-$('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-step]');if(!b)return;step=b.dataset.step;pickName='';refreshAll()});
+$('#nav').addEventListener('click',e=>{const b=e.target.closest('[data-step]');if(!b)return;if(b.dataset.step!==step){step=b.dataset.step;try{history.pushState({v:'setup',step},'')}catch(_){}}pickName='';refreshAll()});
 $('#panel').addEventListener('paste',e=>{
   if(e.target.id!=='roster')return;
   const tx=(e.clipboardData||window.clipboardData).getData('text');
@@ -1117,13 +1117,45 @@ $('#bSound').onclick=()=>{S.sound=!S.sound;if(!S.sound)tenseStop();save();$('#bS
 $('#bSound').textContent=S.sound?'🔊':'🔇';
 $('#bFull').onclick=()=>{try{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}catch(e){}};
 $('#camPill').onclick=e=>{const b=e.target.closest('[data-cam]');if(!b)return;camMode=b.dataset.cam;$$('#camPill button').forEach(x=>x.classList.toggle('on',x===b))};
-$('#bSet').onclick=()=>guard(()=>{token++;stageOn=false;busy=false;auto=false;showView('setup');refreshAll()});
+$('#bSet').onclick=()=>goBackGuarded(-1);
 $('#bResult').onclick=()=>{$('#finish').classList.remove('on');showResult(lastRec)};
 
 /* =====================================================================
    결과 화면
    ===================================================================== */
-function showView(id){$$('.view').forEach(v=>v.classList.toggle('on',v.id===id));if(id!=='stage')stageOn=false}
+let curView='setup',sup=false,passed=false,resFromStage=false,rootT=0;
+function showView(id){
+  $$('.view').forEach(v=>v.classList.toggle('on',v.id===id));if(id!=='stage')stageOn=false;
+  if(id!==curView){
+    if(id==='result')resFromStage=curView==='stage';
+    curView=id;
+    if(!sup)try{history.pushState({v:id,step},'')}catch(e){}
+  }
+}
+/* ----- 뒤로 가기: 사이트 밖으로 나가지 않고 앱 안에서 한 단계씩 ----- */
+try{history.replaceState({v:'root'},'');history.pushState({v:'setup',step},'')}catch(e){}
+function goBackGuarded(n){guard(()=>{passed=true;history.go(n||-1)})}
+addEventListener('popstate',e=>{
+  const s_=e.state||{v:'root'};
+  if(s_.v==='root'){
+    if(Date.now()-rootT<2500){rootT=0;history.back();return}
+    rootT=Date.now();toast('한 번 더 누르면 사이트에서 나가요');
+    try{history.pushState({v:'setup',step},'')}catch(_){}
+    return;
+  }
+  const leave=()=>{
+    passed=false;sup=true;
+    if(s_.v==='setup'){
+      if(curView!=='setup'){token++;stageOn=false;busy=false;auto=false;tenseStop();$('#finish').classList.remove('on')}
+      showView('setup');if(s_.step)step=s_.step;pickName='';refreshAll();
+    }else if(s_.v==='stage'&&curView==='result'){showView('stage')}
+    else if(curView==='setup'){sup=false;history.back();return}
+    sup=false;
+  };
+  if(curView!=='setup'&&s_.v==='setup'&&S.lockOn&&!passed){
+    guard(leave,()=>{try{history.pushState({v:curView},'')}catch(_){}});
+  }else leave();
+});
 function sheetHTML(rec,flip){
   const L={mode:rec.mode,rows:rec.rows,groups:rec.groups},C=cols(L),R=L.rows,pair=L.mode==='pair';
   const byS={};Object.entries(rec.seats).forEach(([n,s])=>byS[s]=n);
@@ -1188,7 +1220,7 @@ function showResult(rec){
    <div class="sheetbox"><h3>👩‍🏫 교사용 <span class="note">교탁에서 학생들을 본 모습 (칠판이 아래)</span><span><button class="btn sm pri" data-r="print1">🖨 교사용 인쇄 (교탁에 붙이기)</button> <button class="btn sm" data-r="pdf1">📄 PDF 보기</button> <button class="btn sm" data-r="img1">🖼 이미지 저장</button></span></h3>${sheetHTML(rec,true)}</div>`;
   showView('result');
 }
-$('#rBack').onclick=()=>guard(()=>{token++;showView('setup');refreshAll()});
+$('#rBack').onclick=()=>goBackGuarded(resFromStage?-2:-1);
 $('#rBody').addEventListener('click',e=>{
   const b=e.target.closest('[data-r]');if(!b||!curRec)return;
   const a=b.dataset.r;
