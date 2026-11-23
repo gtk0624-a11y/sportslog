@@ -112,6 +112,11 @@ textarea{height:300px;resize:vertical;line-height:1.5}
 .sheet .sc{background:#fbfdf8;border:1.5px solid #cfdcc3;border-radius:10px;min-height:50px;display:grid;place-items:center;font-size:clamp(12px,1.9vw,19px);font-weight:700;padding:4px;text-align:center}
 .sheet .sc.f{background:#fff4f8}.sheet .sc.m{background:#f2f8ff}.sheet .sc.e{background:#f2f2f2;color:#bbb;font-weight:400}
 .sheet.flip .bdw{order:99}
+.gcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.gc{border-radius:16px;padding:12px 16px;border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.06)}
+.gc .gh{font-family:'Jua';font-size:20px;margin-bottom:6px}
+.gc ul{list-style:none;margin:0;padding:0}.gc li{font-size:17px;font-weight:700;padding:3px 0}
+.c0{background:#ffe3ec}.c1{background:#fff0c2}.c2{background:#dff3e4}.c3{background:#ddeeff}.c4{background:#eadfff}.c5{background:#ffe5d2}
 #printArea{display:none}
 /* ---------- misc ---------- */
 #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#27402f;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:99;max-width:90vw;text-align:center}
@@ -142,6 +147,7 @@ textarea{height:300px;resize:vertical;line-height:1.5}
   #printArea .sc{border:1.5px solid #333!important;background:#fff!important;min-height:62px;font-size:17px;border-radius:6px}
   #printArea .bd{background:#fff!important;color:#000!important;border:2px solid #333}
   #printArea .tb{background:#fff!important;border:1.5px solid #333}
+  #printArea .gc{border:2px solid #333!important;background:#fff!important;break-inside:avoid}
   #printArea .foot{margin-top:8px;font-size:10px;text-align:right;color:#555}
 }
 </style>
@@ -157,6 +163,7 @@ textarea{height:300px;resize:vertical;line-height:1.5}
       <div class="grow"></div>
       <div class="ready" id="ready"></div>
       <button class="go" id="goBtn">▶ 자리 뽑기 시작</button>
+      <button class="go" id="goGroup" style="background:#ffd9e4;box-shadow:0 3px 0 #f0a9c0">▶ 모둠 뽑기 시작</button>
     </aside>
     <main class="panel" id="panel"></main>
     <div class="prev" id="prev"></div>
@@ -220,7 +227,8 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 /* ---------- 설정값(교사 비밀번호 기본값 포함) ---------- */
 const KEY='dudu-seat-v1';
 const DEF={rosterText:'',mode:'pair',rows:4,groups:3,genderPair:true,avoidLast:true,autoFit:true,
-  fixed:{},front:[],first:[],conf:[],confMode:'around',lockOn:false,pin:'0624',records:[],sound:true};
+  fixed:{},front:[],first:[],conf:[],confMode:'around',lockOn:false,pin:'0624',records:[],sound:true,
+  gmode:'count',gcount:6,gsize:4,gbalance:true,gleader:true,gavoid:true,gfixed:{}};
 function load(){let o={};try{o=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}return Object.assign(JSON.parse(JSON.stringify(DEF)),o)}
 let S=load();
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
@@ -268,7 +276,7 @@ function adjacent(a,b){
   return Math.abs(r1-r2)<=1&&Math.abs(c1-c2)<=1;
 }
 function lastMap(){
-  const r=S.records[0]; if(!r||r.mode!==S.mode||r.rows!==S.rows||r.groups!==S.groups) return null;
+  const r=S.records.find(x=>!x.type); if(!r||r.mode!==S.mode||r.rows!==S.rows||r.groups!==S.groups) return null;
   return r.seats;
 }
 function solve(st,last){
@@ -310,6 +318,64 @@ function solve(st,last){
   return best;
 }
 
+/* ---------- 모둠 계산 ---------- */
+function groupCount(n){return n<1?S.gcount:Math.max(1,Math.min(n,S.gmode==='count'?S.gcount:Math.ceil(n/S.gsize)))}
+function solveGroups(st,G){
+  const n=st.length,idx={};st.forEach((s,i)=>idx[s.name]=i);
+  const conf=S.conf.filter(p=>idx[p[0]]!==undefined&&idx[p[1]]!==undefined).map(p=>[idx[p[0]],idx[p[1]]]);
+  const fixedG={};Object.entries(S.gfixed).forEach(([nm,g])=>{if(idx[nm]!==undefined&&g<G)fixedG[idx[nm]]=g});
+  const lastPairs=new Set(),lr=S.records.find(r=>r.type==='group');
+  if(S.gavoid&&lr)lr.groups.forEach(g=>{const m=g.members;for(let a=0;a<m.length;a++)for(let b=a+1;b<m.length;b++)lastPairs.add([m[a],m[b]].sort().join('|'))});
+  const base=Math.floor(n/G),ex=n%G;
+  let best=null;
+  for(let at=0;at<3000;at++){
+    const cap=Array(G).fill(base);shuffle([...Array(G).keys()]).slice(0,ex).forEach(g=>cap[g]++);
+    const grp=Array.from({length:G},()=>[]);
+    Object.entries(fixedG).forEach(([i,g])=>{grp[g].push(+i);if(grp[g].length>cap[g])cap[g]=grp[g].length});
+    const rest=shuffle(st.map((_,i)=>i).filter(i=>fixedG[i]===undefined));
+    const seq=S.gbalance?[...rest.filter(i=>st[i].g==='f'),...rest.filter(i=>st[i].g==='m'),...rest.filter(i=>!st[i].g)]:rest;
+    seq.forEach(i=>{
+      let c=grp.map((_,k)=>k).filter(k=>grp[k].length<cap[k]);
+      if(!c.length)c=grp.map((_,k)=>k);
+      if(S.gbalance&&st[i].g){const cnt=k=>grp[k].filter(j=>st[j].g===st[i].g).length,mn=Math.min(...c.map(cnt));c=c.filter(k=>cnt(k)===mn)}
+      grp[pick(c)].push(i);
+    });
+    let v=0;
+    conf.forEach(([a,b])=>{if(grp.some(g=>g.includes(a)&&g.includes(b)))v+=100});
+    if(lastPairs.size)grp.forEach(g=>{for(let a=0;a<g.length;a++)for(let b=a+1;b<g.length;b++)if(lastPairs.has([st[g[a]].name,st[g[b]].name].sort().join('|')))v+=1});
+    if(!best||v<best.v)best={v,groups:grp.map(g=>g.slice())};
+    if(v===0)break;
+  }
+  best.leaders=best.groups.map(g=>g.length?pick(g):-1);
+  return best;
+}
+function buildGroupGeo(groups){
+  const G=groups.length,TC=Math.ceil(Math.sqrt(G*1.5)),TR=Math.ceil(G/TC),tw=860/TC,th=300/TR;
+  const PAST=['#ffe3ec','#fff0c2','#dff3e4','#ddeeff','#eadfff','#ffe5d2'];
+  const geo=[],tabs=[],seatOf={};
+  groups.forEach((g,gi)=>{
+    const tx=70+(gi%TC)*tw+tw*.06,ty=110+Math.floor(gi/TC)*th+th*.16,tW=tw*.88,tH=th*.78,k=g.length;
+    tabs.push({x:tx,y:ty,w:tW,h:tH,col:PAST[gi%6],name:`${gi+1}모둠`});
+    const cs=k>1?2:1,rowsS=Math.ceil(k/cs),sw=tW/cs*.86,sh=Math.min(tH/rowsS*.62,sw*.6);
+    g.forEach((si,m)=>{
+      const c=m%cs,r=Math.floor(m/cs);
+      const x=tx+c*(tW/cs)+(tW/cs-sw)/2,y=ty+tH*.08+r*(tH*.9/rowsS);
+      seatOf[si]=geo.length;
+      geo.push({x,y,w:sw,h:sh,cx:x+sw/2,cy:y+sh/2,sw:sw/.94,gname:`${gi+1}모둠`});
+    });
+  });
+  return {geo,tabs,seatOf};
+}
+function startGroup(){
+  const s=students();
+  if(s.length<2)return toast('먼저 학생 명단을 넣어 주세요');
+  const G=groupCount(s.length),r=solveGroups(s,G);
+  if(r.v>=100)toast('조건을 모두 지키는 모둠을 못 찾아 가장 가까운 편성으로 진행해요');
+  const gi=buildGroupGeo(r.groups);
+  gi.groups=r.groups;gi.leaders=r.leaders;
+  begin(s,s.map((_,i)=>gi.seatOf[i]),gi);
+}
+
 /* ---------- 알림/모달 ---------- */
 let toastT;
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2600)}
@@ -329,11 +395,11 @@ $('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()})
    ===================================================================== */
 let step='roster',pickName='';
 const STEPS=[
-  ['roster','1','학생 명단'],['shape','2','자리 모양'],['front','3','앞자리 학생'],['first','4','먼저 뽑기'],['teacher','5','교사 추가 설정']
+  ['roster','1','학생 명단'],['shape','2','자리 모양'],['front','3','앞자리 학생'],['first','4','먼저 뽑기'],['teacher','5','교사 추가 설정'],['group','6','모둠 구성']
 ];
 function renderNav(){
   const st=students(),N=nSeats();
-  const em={roster:st.length+'명',shape:N+'자리',front:S.front.length||'',first:S.first.length||'',teacher:(Object.keys(S.fixed).length+S.conf.length)||''};
+  const em={roster:st.length+'명',shape:N+'자리',front:S.front.length||'',first:S.first.length||'',teacher:(Object.keys(S.fixed).length+S.conf.length)||'',group:groupCount(st.length)+'모둠'};
   $('#nav').innerHTML=STEPS.map(([k,n,t])=>`<button class="nav ${step===k?'on':''}" data-step="${k}"><i>${n}</i><span>${t}</span><em>${em[k]}</em></button>`).join('')+
    `<div class="nav-h">기록과 정보</div><button class="nav ${step==='records'?'on':''}" data-step="records"><i>⏱</i><span>지난 기록</span><em>${S.records.length||''}</em></button><button class="nav ${step==='info'?'on':''}" data-step="info"><i>ⓘ</i><span>프로그램 정보</span></button>`;
 }
@@ -388,9 +454,25 @@ function renderPanel(){
     <div class="card"><h3>✅ 조건 확인</h3><div class="row"><button class="btn pri" data-act="check">지금 조건으로 자리가 나오는지 확인</button></div><div id="checkOut"></div></div>
     <div class="card"><h3>🔒 교사 화면 잠금</h3><div class="field"><label>켜면 뽑기 화면의 '설정', 결과 화면의 '처음으로'를 누를 때 비밀번호를 물어요.<br><span class="note">학생이 직접 만지는 수업 때 유용해요.</span></label><button class="tog ${S.lockOn?'on':''}" data-act="lock"></button></div>
     ${S.lockOn?`<div class="row"><span class="note">비밀번호</span><input type="text" id="pinSet" value="${esc(S.pin)}" style="width:120px" inputmode="numeric"></div>`:''}</div>`;
+  }else if(step==='group'){
+    const n=st.length,G=groupCount(n),base=n?Math.floor(n/G):0,ex=n%G;
+    const dist=n?(ex?`${base+1}명 ${ex}모둠 · ${base}명 ${G-ex}모둠`:`${base}명씩 ${G}모둠`):'';
+    const gf=Object.entries(S.gfixed).filter(([nm])=>st.some(s=>s.name===nm));
+    h=`<h2>모둠 구성</h2><p class="sub">같은 명단으로 모둠도 크레인이 뽑아 줘요. 수업 시간마다 새로 뽑고, 결과는 지난 기록에 저장돼요. 왼쪽 아래 <b>▶ 모둠 뽑기 시작</b>을 누르세요.</p>
+    <div class="card"><h3>나누는 방식</h3><div class="seg"><button data-act="gmode" data-v="count" class="${S.gmode==='count'?'on':''}">모둠 수로</button><button data-act="gmode" data-v="size" class="${S.gmode==='size'?'on':''}">한 모둠 인원으로</button></div>
+    <div class="field"><label>${S.gmode==='count'?'모둠 수':'모둠당 인원'}</label><div class="step"><button data-act="gval-">−</button><b>${S.gmode==='count'?S.gcount:S.gsize}</b><button data-act="gval+">+</button></div></div>
+    <div class="${n>=2?'ok':'warn'}">${n?`학생 ${n}명 → 모둠 ${G}개 (${dist})`:'학생 명단을 먼저 넣어 주세요.'}</div></div>
+    <div class="card"><h3>조건</h3>
+    <div class="field"><label>남녀 골고루 섞기<br><span class="note">성별이 입력된 명단에서만 적용돼요</span></label><button class="tog ${S.gbalance?'on':''}" data-act="gbal"></button></div>
+    <div class="field"><label>모둠장 자동 뽑기</label><button class="tog ${S.gleader?'on':''}" data-act="gleader"></button></div>
+    <div class="field"><label>지난 모둠과 같은 조합 피하기<br><span class="note">가장 최근 모둠 기록과 비교해요</span></label><button class="tog ${S.gavoid?'on':''}" data-act="gavoid"></button></div>
+    <p class="note">🚫 '교사 추가 설정'의 앙숙 ${S.conf.length}쌍은 같은 모둠에 넣지 않아요.</p></div>
+    <div class="card"><h3>📌 모둠 고정</h3><p class="note">특정 학생을 특정 모둠에 꼭 넣고 싶을 때 지정하세요.</p>
+    <div class="row"><select id="gfS" style="flex:1"><option value="">학생</option>${st.filter(s=>S.gfixed[s.name]===undefined).map(s=>`<option>${esc(s.name)}</option>`).join('')}</select><select id="gfG" style="width:90px">${Array.from({length:G},(_,i)=>`<option value="${i}">${i+1}모둠</option>`).join('')}</select><button class="btn pri" data-act="gfix">추가</button></div>
+    <div class="list">${gf.map(([nm,g])=>`<div><span>${esc(nm)} → ${g+1}모둠</span><button data-act="gunfix" data-n="${esc(nm)}">해제</button></div>`).join('')}</div></div>`;
   }else if(step==='records'){
     h=`<h2>지난 기록</h2><p class="sub">뽑기를 끝낼 때마다 이 기기에 자동 저장돼요. (최근 30개)</p>`+
-      (S.records.length?S.records.map((r,i)=>`<div class="card"><div class="field" style="margin:0"><div><b>${esc(r.label)}</b><div class="note">${r.mode==='pair'?'짝꿍':'혼자'} · ${r.rows}줄 × ${r.groups}${r.mode==='pair'?'분단':'열'} · ${Object.keys(r.seats).length}명</div></div><div class="row" style="margin:0"><button class="btn sm pri" data-act="viewRec" data-i="${i}">보기·인쇄</button><button class="btn sm" data-act="delRec" data-i="${i}">삭제</button></div></div></div>`).join(''):`<div class="card note">아직 기록이 없어요.</div>`);
+      (S.records.length?S.records.map((r,i)=>`<div class="card"><div class="field" style="margin:0"><div><b>${esc(r.label)}</b><div class="note">${r.type==='group'?`모둠 ${r.groups.length}개 · ${r.groups.reduce((a,g)=>a+g.members.length,0)}명`:`${r.mode==='pair'?'짝꿍':'혼자'} · ${r.rows}줄 × ${r.groups}${r.mode==='pair'?'분단':'열'} · ${Object.keys(r.seats).length}명`}</div></div><div class="row" style="margin:0"><button class="btn sm pri" data-act="viewRec" data-i="${i}">보기·인쇄</button><button class="btn sm" data-act="delRec" data-i="${i}">삭제</button></div></div></div>`).join(''):`<div class="card note">아직 기록이 없어요.</div>`);
   }else{
     h=`<h2>프로그램 정보</h2><div class="card"><h3>사용 순서</h3><p class="note">① 학생 명단 붙여 넣기 → ② 자리 모양 → (③④⑤ 필요하면) → ▶ 자리 뽑기 시작 → 크레인이 한 명씩 뽑아 자리에 내려놓아요 → 결과표 인쇄(학생용·교사용).</p></div>
     <div class="card"><h3>알아 두세요</h3><p class="note">· 자리는 <b>조건(고정석·앞자리·앙숙·남녀 짝)을 지키도록 미리 무작위로 계산</b>한 뒤, 크레인 연출로 하나씩 공개해요. 연출 도중의 '놓을까 말까'는 긴장감을 위한 효과예요.<br>· 데이터는 이 기기의 브라우저(localStorage)에만 저장돼요. 다른 기기에서는 명단을 다시 넣어야 해요.<br>· 같은 폴더에 <b>dreamson.png</b> 파일을 넣으면 캐릭터가 자동으로 바뀌어요.<br>· 교사 화면 잠금 기본 비밀번호는 0624예요.</p></div>
@@ -399,6 +481,11 @@ function renderPanel(){
   P.innerHTML=h;
 }
 function renderPrev(){
+  if(step==='group'){
+    const n=students().length,G=groupCount(n),base=n?Math.floor(n/G):0,ex=n%G;
+    $('#prev').innerHTML=`<div class="pcard"><div class="ptitle">모둠 미리보기</div><div class="gcards" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr))">${Array.from({length:G},(_,i)=>`<div class="gc c${i%6}" style="padding:10px"><div class="gh" style="font-size:16px">${i+1}모둠</div><div class="note">${i<ex?base+1:base}명</div></div>`).join('')}</div></div>`;
+    return;
+  }
   const C=cols(),pair=S.mode==='pair',fb={};
   Object.entries(S.fixed).forEach(([n,s])=>fb[s]=n);
   const st=students(),gm={};st.forEach(s=>gm[s.name]=s.g);
@@ -477,6 +564,13 @@ $('#panel').addEventListener('click',e=>{
     const r=solve(st,lastMap());
     o.innerHTML=r.v<100?`<div class="ok">✅ 조건을 모두 지키는 배치가 나와요. 뽑을 때마다 새로 섞여요.</div>`:`<div class="warn">⚠ 지금 조건으로는 앙숙을 모두 떨어뜨리기 어려워요. 고정석이나 '앙숙' 범위를 줄여 보세요.</div>`;
   }
+  else if(a==='gmode'){S.gmode=b.dataset.v;save();refreshAll()}
+  else if(a==='gval-'||a==='gval+'){const d=a==='gval+'?1:-1;if(S.gmode==='count')S.gcount=Math.max(2,Math.min(12,S.gcount+d));else S.gsize=Math.max(2,Math.min(8,S.gsize+d));save();refreshAll()}
+  else if(a==='gbal'){S.gbalance=!S.gbalance;save();refreshAll()}
+  else if(a==='gleader'){S.gleader=!S.gleader;save();refreshAll()}
+  else if(a==='gavoid'){S.gavoid=!S.gavoid;save();refreshAll()}
+  else if(a==='gfix'){const x=$('#gfS').value;if(!x)return toast('학생을 골라 주세요');S.gfixed[x]=+$('#gfG').value;save();refreshAll()}
+  else if(a==='gunfix'){delete S.gfixed[b.dataset.n];save();refreshAll()}
   else if(a==='viewRec')showResult(S.records[+b.dataset.i]);
   else if(a==='delRec'){S.records.splice(+b.dataset.i,1);save();refreshAll()}
 });
@@ -494,6 +588,7 @@ async function loadFile(f){
   }catch(err){toast('파일을 읽지 못했어요. 엑셀에서 복사해 붙여 넣어 보세요')}
 }
 $('#goBtn').onclick=startGame;
+$('#goGroup').onclick=()=>startGroup();
 
 /* =====================================================================
    뽑기 화면 (캔버스 크레인)
@@ -510,7 +605,7 @@ addEventListener('resize',resize);resize();
 const ZT=300;                       // 레일 높이
 const cam={fx:500,fy:400,Z:1,t:.72};
 let camMode='follow',shake=0;
-let crane,st,seatOf,geo,prizes,filled,placedAt,order,labelOf,done,busy,auto,token=0,stageOn=false,saved=false,speed=1,confetti=[],stamp=null,audio=null,held=null;
+let gtabs=null,gInfo=null,crane,st,seatOf,geo,prizes,filled,placedAt,order,labelOf,done,busy,auto,token=0,stageOn=false,saved=false,speed=1,confetti=[],stamp=null,audio=null,held=null;
 const COLORS=['#ffb3c8','#ffd68a','#a9e0c0','#a9d1ff','#d4b8ff','#ffc9a6','#bfe9a5','#ffe27a'];
 
 function P(x,y,z){
@@ -564,13 +659,17 @@ function draw(now){
   // 칠판
   poly([[290,0,125],[710,0,125],[710,0,295],[290,0,295]],'#d9b98a');
   poly([[298,0,133],[702,0,133],[702,0,287],[298,0,287]],'#2f5d3f');
-  {const [x,y,s]=P(500,0,225);txt('오늘의 자리는?',x,y,26*s,'#fff');const [x2,y2]=P(500,0,180);txt(todayLabel()+' · 두근두근 자리 뽑기',x2,y2,12.5*s,'#d8ecd0','center','400')}
+  {const [x,y,s]=P(500,0,225);txt(gtabs?'오늘의 모둠은?':'오늘의 자리는?',x,y,26*s,'#fff');const [x2,y2]=P(500,0,180);txt(todayLabel()+' · 두근두근 '+(gtabs?'모둠':'자리')+' 뽑기',x2,y2,12.5*s,'#d8ecd0','center','400')}
   // 바닥
   poly([[0,0,0],[1000,0,0],[1000,770,0],[0,770,0]],'#fdf3d6','#e8dcb4',2);
   poly([[50,70,0],[950,70,0],[950,422,0],[50,422,0]],'#f6e1b0');
   poly([[50,448,0],[950,448,0],[950,745,0],[50,745,0]],'#ffe3ec');
   poly([[50,424,0],[950,424,0],[950,446,0],[50,446,0]],'#ffe27a');
   {const [x,y,s]=P(500,435,0);txt('★ 오늘의 상품 ★',x,y,13*s,'#8a6a00')}
+  if(gtabs)gtabs.forEach(t=>{
+    poly([[t.x,t.y,0],[t.x+t.w,t.y,0],[t.x+t.w,t.y+t.h,0],[t.x,t.y+t.h,0]],t.col,'#fff',3);
+    const [lx,ly,ls]=P(t.x+t.w/2,t.y-2,0);pill(t.name,lx,ly,Math.max(10,14*ls),'#e8772e');
+  });
   // 책상
   geo.forEach((d,k)=>{
     const z=34;
@@ -606,7 +705,7 @@ function draw(now){
     const sc=a<.2?a/.2:1,al=a>.75?(1-a)/.25:1;
     ctx.save();ctx.globalAlpha=al;ctx.translate(sx,sy-70*s);ctx.rotate(-.12);ctx.scale(sc*1.1,sc*1.1);
     rr(-86,-26,172,52,12);ctx.fillStyle='#e8772e';ctx.fill();ctx.lineWidth=4;ctx.strokeStyle='#fff';ctx.stroke();
-    txt('★자리 확정★',0,2,23,'#fff','center','400');ctx.restore();}}
+    txt(gtabs?'★모둠 확정★':'★자리 확정★',0,2,23,'#fff','center','400');ctx.restore();}}
   confetti=confetti.filter(c=>c.l>0);
   confetti.forEach(c=>{c.x+=c.vx;c.y+=c.vy;c.vy+=.35;c.l-=1;ctx.globalAlpha=Math.min(1,c.l/20);ctx.fillStyle=c.c;ctx.fillRect(c.x,c.y,7,4);ctx.globalAlpha=1});
   if(shake>0)shake=Math.max(0,shake-.6);
@@ -695,13 +794,13 @@ function startGame(){
   if(r.v>=100)toast('조건을 모두 지키는 배치를 못 찾아 가장 가까운 배치로 진행해요');
   begin(s,r.seatOf);
 }
-function begin(students_,so){
-  token++;st=students_;seatOf=so;geo=buildGeo();
+function begin(students_,so,gi){
+  token++;st=students_;seatOf=so;gInfo=gi||null;gtabs=gi?gi.tabs:null;geo=gi?gi.geo:buildGeo();
   filled=new Array(geo.length).fill(null);placedAt=new Array(geo.length).fill(0);labelOf=new Array(geo.length).fill('');
   crane={x:500,y:430,L:60,open:1,sway:0};held=null;done=0;busy=false;auto=false;saved=false;confetti=[];stamp=null;shake=0;
   // 고정석은 처음부터 자리에 놓여 있음
   const fixedIdx=[];
-  st.forEach((s,i)=>{if(S.fixed[s.name]===seatOf[i]){filled[seatOf[i]]=s.name;labelOf[seatOf[i]]=s.g;placedAt[seatOf[i]]=-9999;fixedIdx.push(i)}});
+  st.forEach((s,i)=>{if(!gi&&S.fixed[s.name]===seatOf[i]){filled[seatOf[i]]=s.name;labelOf[seatOf[i]]=s.g;placedAt[seatOf[i]]=-9999;fixedIdx.push(i)}});
   const toDraw=st.map((_,i)=>i).filter(i=>!fixedIdx.includes(i));
   const firsts=shuffle(toDraw.filter(i=>S.first.includes(st[i].name))),others=shuffle(toDraw.filter(i=>!S.first.includes(st[i].name)));
   order=firsts.concat(others);
@@ -714,6 +813,7 @@ function begin(students_,so){
   prizes.sort((a,b)=>a.i-b.i);
   fixedIdx.forEach(i=>{});
   cam.fx=500;cam.fy=400;cam.Z=1;cam.t=.72;
+  if(gi){camMode='full';$$('#camPill button').forEach(x=>x.classList.toggle('on',x.dataset.cam==='full'))}
   $('#finish').classList.remove('on');
   chip('준비','뽑기 버튼을 눌러 주세요');updateHud();
   showView('stage');stageOn=true;
@@ -731,7 +831,7 @@ async function runOne(){
     sfx('grab');await openTo(.12,320);
     pz.held=true;held=pz;pz.dropping=undefined;
     await lowerTo(70,600);
-    chip(tag,'잡았다! 어느 자리에 앉게 될까?');sfx('catch');
+    chip(tag,gtabs?'잡았다! 어느 모둠에 들어갈까?':'잡았다! 어느 자리에 앉게 될까?');sfx('catch');
     const spots=geo.map((_,k)=>k).filter(k=>k!==seatOf[i]&&!filled[k]);
     const tease=order.length>0?1+Math.floor(Math.random()*3):1;
     for(let t=0;t<tease&&spots.length;t++){
@@ -753,7 +853,7 @@ async function runOne(){
     filled[seatOf[i]]=s.name;labelOf[seatOf[i]]=s.g;placedAt[seatOf[i]]=performance.now();
     stamp={t0:performance.now(),x:tgt.cx,y:tgt.cy};shake=7;sfx('stamp');
     {const [sx,sy]=P(tgt.cx,tgt.cy,60);for(let c=0;c<34;c++)confetti.push({x:sx,y:sy,vx:rand(-6,6),vy:rand(-11,-2),c:pick(COLORS),l:rand(40,70)})}
-    done++;chip(tag,`✔ ${seatLabel(seatOf[i])} 자리 확정!`);
+    done++;chip(tag,gtabs?`✔ ${tgt.gname} 확정!`:`✔ ${seatLabel(seatOf[i])} 자리 확정!`);
     await Promise.all([lowerTo(60,550),moveTo(500,430,750)]);
     busy=false;updateHud();
     if(!order.length){await waitS(900);finish();return}
@@ -763,7 +863,11 @@ async function runOne(){
 function finish(){
   if(saved)return;saved=true;auto=false;busy=false;updateHud();
   const seats={};st.forEach((s,i)=>seats[s.name]=seatOf[i]);
-  const rec={ts:Date.now(),label:new Date().toLocaleString('ko-KR',{month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'})+' 뽑기',mode:S.mode,rows:S.rows,groups:S.groups,seats,g:Object.fromEntries(st.map(s=>[s.name,s.g]))};
+  let rec;
+  if(gInfo){
+    rec={type:'group',ts:Date.now(),label:new Date().toLocaleString('ko-KR',{month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'})+' 모둠',
+      groups:gInfo.groups.map((g,k)=>({members:g.map(i=>st[i].name),leader:S.gleader&&gInfo.leaders[k]>=0?st[gInfo.leaders[k]].name:''})),g:Object.fromEntries(st.map(s=>[s.name,s.g]))};
+  }else rec={ts:Date.now(),label:new Date().toLocaleString('ko-KR',{month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'})+' 뽑기',mode:S.mode,rows:S.rows,groups:S.groups,seats,g:Object.fromEntries(st.map(s=>[s.name,s.g]))};
   S.records.unshift(rec);S.records=S.records.slice(0,30);save();lastRec=rec;
   sfx('end');$('#finMascot').innerHTML=mascot(96);$('#finish').classList.add('on');chip('끝!','모든 자리가 정해졌어요');
 }
@@ -803,8 +907,35 @@ function sheetHTML(rec,flip){
   return `<div class="sheet">${flip?rowsH+foot:head+rowsH}</div>`;
 }
 let curRec=null;
+function groupSheetHTML(rec){
+  return '<div class="gcards">'+rec.groups.map((g,i)=>`<div class="gc c${i%6}"><div class="gh">${i+1}모둠 <span class="note">${g.members.length}명</span></div><ul>${g.members.map(m=>`<li>${m===g.leader?'👑 ':''}${esc(m)}</li>`).join('')}</ul></div>`).join('')+'</div>';
+}
+function showGroupResult(rec){
+  $('#rTitle').textContent='🎉 '+rec.label+' 결과';
+  $('#rSaved').textContent='지난 기록에 자동 저장됐어요';
+  $('#rBody').innerHTML=`<div class="sheetbox"><h3>👥 모둠 편성 <span class="note">👑 = 모둠장</span><span><button class="btn sm pri" data-r="gprint">🖨 인쇄</button> <button class="btn sm" data-r="gimg">🖼 이미지 저장</button> <button class="btn sm" data-r="gcopy">📋 엑셀용 복사</button> <button class="btn sm" data-r="again">🔄 같은 조건으로 다시 뽑기</button></span></h3>${groupSheetHTML(rec)}</div>`;
+  showView('result');
+}
+function saveGroupImg(rec){
+  const per=3,cw=330,rowH=n=>60+n*38,G=rec.groups.length,rowsN=Math.ceil(G/per);
+  const hs=[];for(let r=0;r<rowsN;r++)hs.push(Math.max(...rec.groups.slice(r*per,r*per+per).map(g=>rowH(g.members.length))));
+  const wid=per*cw+(per+1)*20,hei=90+hs.reduce((a,b)=>a+b+20,0)+40;
+  const c=document.createElement('canvas');c.width=wid;c.height=hei;const x=c.getContext('2d');
+  x.fillStyle='#fff';x.fillRect(0,0,wid,hei);x.textBaseline='middle';
+  x.fillStyle='#27402f';x.textAlign='center';x.font=`700 34px ${FONT}`;x.fillText(rec.label+' · 모둠 편성',wid/2,46);
+  const PAST=['#ffe3ec','#fff0c2','#dff3e4','#ddeeff','#eadfff','#ffe5d2'];
+  rec.groups.forEach((g,i)=>{
+    const r=Math.floor(i/per),cc=i%per,px=20+cc*(cw+20),py=90+hs.slice(0,r).reduce((a,b)=>a+b+20,0),h=hs[r];
+    x.fillStyle=PAST[i%6];x.strokeStyle='#8fa584';x.lineWidth=2;x.beginPath();x.rect(px,py,cw,h);x.fill();x.stroke();
+    x.textAlign='left';x.fillStyle='#27402f';x.font=`700 28px ${FONT}`;x.fillText(`${i+1}모둠`,px+18,py+30);
+    x.font=`700 24px ${FONT}`;g.members.forEach((m,k)=>x.fillText((m===g.leader?'👑 ':'')+m,px+22,py+72+k*38));
+  });
+  x.fillStyle='#888';x.font=`400 14px ${FONT}`;x.textAlign='right';x.fillText('© 김정환 · M.A.D.T',wid-20,hei-16);
+  c.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='모둠편성표.png';document.body.appendChild(a);a.click();a.remove();toast('이미지를 저장했어요')});
+}
 function showResult(rec){
   if(!rec)return;curRec=rec;
+  if(rec.type==='group')return showGroupResult(rec);
   $('#rTitle').textContent='🎉 '+rec.label+' 결과';
   $('#rSaved').textContent='지난 기록에 자동 저장됐어요';
   $('#rBody').innerHTML=`
@@ -816,6 +947,14 @@ $('#rBack').onclick=()=>guard(()=>{token++;showView('setup');refreshAll()});
 $('#rBody').addEventListener('click',e=>{
   const b=e.target.closest('[data-r]');if(!b||!curRec)return;
   const a=b.dataset.r;
+  if(a==='gprint'){$('#printArea').innerHTML=`<h1>${esc(curRec.label)} · 모둠 편성표</h1>${groupSheetHTML(curRec)}<div class="foot">© 김정환 · M.A.D.T</div>`;setTimeout(()=>window.print(),80);return}
+  if(a==='gimg')return saveGroupImg(curRec);
+  if(a==='gcopy'){
+    const gs=curRec.groups,mx=Math.max(...gs.map(g=>g.members.length)),L=[gs.map((_,i)=>`${i+1}모둠`).join('\t')];
+    for(let r=0;r<mx;r++)L.push(gs.map(g=>g.members[r]?(g.members[r]===g.leader?'★':'')+g.members[r]:'').join('\t'));
+    const t=L.join('\n'),fb=()=>{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');toast('복사했어요. 엑셀에 붙여 넣으세요')}catch(e){toast('복사하지 못했어요')}ta.remove()};
+    navigator.clipboard?navigator.clipboard.writeText(t).then(()=>toast('복사했어요. 엑셀에 붙여 넣으세요'),fb):fb();return}
+  if(a==='again'){startGroup();return}
   if(a==='print0'||a==='print1'){
     $('#printArea').innerHTML=`<h1>${esc(curRec.label)} · 우리 반 자리 배치표 (${a==='print0'?'학생용':'교사용'})</h1>${sheetHTML(curRec,a==='print1')}<div class="foot">© 김정환 · M.A.D.T</div>`;
     setTimeout(()=>window.print(),80);
