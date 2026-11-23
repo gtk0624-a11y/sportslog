@@ -868,6 +868,41 @@ function sfx(kind){
   }catch(e){}
 }
 
+/* ----- 쪼는 맛 긴장 음악 (심장박동 + 점점 올라가는 사이렌) ----- */
+let tm=null,tmLevel=0;
+function tenseStart(){
+  if(!S.sound||(S.tension||'high')==='low')return;
+  try{
+    tenseStop();
+    audio=audio||new (window.AudioContext||window.webkitAudioContext)();
+    const a=audio,out=a.createGain();out.gain.value=1;out.connect(a.destination);
+    const o=a.createOscillator(),lp=a.createBiquadFilter(),wg=a.createGain();
+    o.type='sawtooth';o.frequency.value=110;lp.type='lowpass';lp.frequency.value=500;wg.gain.value=.012;
+    o.connect(lp);lp.connect(wg);wg.connect(out);o.start();
+    const t0=a.currentTime;let next=t0+.05,n=0;
+    const thump=(t,f,v)=>{const x=a.createOscillator(),g=a.createGain();x.type='sine';x.frequency.setValueAtTime(f,t);x.frequency.exponentialRampToValueAtTime(40,t+.16);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+.2);x.connect(g);g.connect(out);x.start(t);x.stop(t+.22)};
+    const tick=(t,f,v)=>{const x=a.createOscillator(),g=a.createGain();x.type='square';x.frequency.value=f;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+.04);x.connect(g);g.connect(out);x.start(t);x.stop(t+.05)};
+    const iv=setInterval(()=>{
+      const now=a.currentTime,el=now-t0;
+      const per=Math.max(.3,(tmLevel>=2?.42:tmLevel>=1?.58:.85)-el*.03);
+      o.frequency.setTargetAtTime(110+Math.min(el,12)*38+tmLevel*90,now,.4);
+      lp.frequency.setTargetAtTime(400+Math.min(el,12)*120,now,.4);
+      wg.gain.setTargetAtTime(.012+Math.min(el,12)*.002+tmLevel*.008,now,.4);
+      while(next<now+.25){
+        thump(next,95,.22);thump(next+per*.28,80,.16);
+        if(tmLevel>=1)tick(next+per*.5,1400+tmLevel*300,.025);
+        if(tmLevel>=2)tick(next+per*.75,1800,.025);
+        next+=per;n++;
+      }
+    },80);
+    tm={a,o,out,iv};
+  }catch(e){}
+}
+function tenseStop(){
+  if(!tm)return;const m=tm;tm=null;
+  try{clearInterval(m.iv);const t=m.a.currentTime;m.out.gain.cancelScheduledValues(t);m.out.gain.setTargetAtTime(0,t,.05);m.o.stop(t+.3)}catch(e){}
+}
+
 /* ----- 진행 ----- */
 function todayLabel(){const d=new Date();return `${d.getMonth()+1}월 ${d.getDate()}일`}
 function chip(a,b){$('#chipmsg').innerHTML=`<b>${esc(a)}</b><small>${esc(b)}</small>`}
@@ -887,7 +922,7 @@ function startGame(){
   begin(s,r.seatOf);
 }
 function begin(students_,so,gi){
-  token++;st=students_;seatOf=so;gInfo=gi||null;gtabs=gi?gi.tabs:null;geo=gi?gi.geo:buildGeo();
+  token++;tenseStop();tmLevel=0;st=students_;seatOf=so;gInfo=gi||null;gtabs=gi?gi.tabs:null;geo=gi?gi.geo:buildGeo();
   filled=new Array(geo.length).fill(null);placedAt=new Array(geo.length).fill(0);labelOf=new Array(geo.length).fill('');
   crane={x:500,y:430,L:60,open:1,sway:0};held=null;spot=null;zb=1;done=0;busy=false;auto=false;saved=false;confetti=[];stamp=null;shake=0;
   // 고정석은 처음부터 자리에 놓여 있음
@@ -928,8 +963,9 @@ async function runOne(){
     const spots=geo.map((_,k)=>k).filter(k=>k!==seatOf[i]&&!filled[k]&&!geo[k].blocked);
     const T=S.tension||'high',cfg={low:{n:[1,1],fake:0,fin:0,cd:false},mid:{n:[1,3],fake:.3,fin:1,cd:false},high:{n:[2,4],fake:.6,fin:2,cd:true}}[T];
     const lastOne=!order.length;
+    tmLevel=0;tenseStart();
     const fakeDrop=async(d,msg)=>{
-      chip(tag,msg);
+      tenseStop();chip(tag,msg);
       await openTo(1,200);
       held=null;pz.held=false;pz.dropping=true;pz.x=d.cx;pz.y=d.cy;
       const z0=ZT-crane.L-pz.r*.9;pz.z=z0;sfx('drop');
@@ -940,6 +976,7 @@ async function runOne(){
       await openTo(.12,300);sfx('grab');
       pz.held=true;held=pz;pz.dropping=undefined;
       await lowerTo(70,500);
+      tmLevel=0;tenseStart();
     };
     let tease=cfg.n[0]+Math.floor(Math.random()*(cfg.n[1]-cfg.n[0]+1));
     if(!lastOne&&T!=='low')tease=Math.max(1,tease-0);
@@ -953,16 +990,17 @@ async function runOne(){
     await moveTo(tgt.cx,tgt.cy,800);
     spot={x:tgt.cx,y:tgt.cy,t0:performance.now()};
     if(T!=='low')zb=1.22;
-    chip(tag,'놓을까… 말까…');
+    chip(tag,'놓을까… 말까…');tmLevel=1;
     await lowerTo(170,520);sfx('drum');await wobble(1.5);await waitS(250);
     for(let f=0;f<cfg.fin;f++){
       await openTo(.65,220);sfx('tick');await wobble(.7);
       await openTo(.12,220);sfx('grab');chip(tag,f?'진짜 놓는다…?':'놓는다…?');await waitS(350);
     }
+    if(cfg.cd)tmLevel=2;
     if(cfg.cd){for(const n of [3,2,1]){chip(tag,n+'…');sfx('drum');await waitS(750)}}
     await lowerTo(200,300);
     // 떨어뜨리기
-    sfx('drop');spot=null;zb=1;
+    tenseStop();sfx('drop');spot=null;zb=1;
     pz.dropping=true;pz.z=ZT-crane.L-pz.r*.9;
     const z0=pz.z;
     held=null;pz.held=false;pz.x=tgt.cx;pz.y=tgt.cy;
@@ -976,7 +1014,7 @@ async function runOne(){
     busy=false;updateHud();
     if(!order.length){await waitS(900);finish();return}
     if(auto){await waitS(500);runOne()}
-  }catch(e){if(e!=='cancel')console.error(e)}
+  }catch(e){tenseStop();if(e!=='cancel')console.error(e)}
 }
 function finish(){
   if(saved)return;saved=true;auto=false;busy=false;updateHud();
@@ -992,7 +1030,7 @@ function finish(){
 let lastRec=null;
 function skipAll(){
   if(!order.length||saved)return;
-  token++;busy=false;auto=false;held=null;spot=null;zb=1;
+  token++;tenseStop();busy=false;auto=false;held=null;spot=null;zb=1;
   order.forEach(i=>{const k=seatOf[i];filled[k]=st[i].name;labelOf[k]=st[i].g;placedAt[k]=-9999;const p=prizes.find(q=>q.i===i);p.gone=true});
   order=[];crane.L=60;crane.x=500;crane.y=430;crane.sway=0;updateHud();finish();
 }
@@ -1002,7 +1040,7 @@ $('#bAuto').onclick=()=>{auto=!auto;updateHud();if(auto&&!busy)runOne()};
 $('#bSkip').onclick=skipAll;
 $('#spd').onchange=e=>speed=+e.target.value;
 $('#tns').value=S.tension||'high';$('#tns').onchange=e=>{S.tension=e.target.value;save()};
-$('#bSound').onclick=()=>{S.sound=!S.sound;save();$('#bSound').textContent=S.sound?'🔊':'🔇'};
+$('#bSound').onclick=()=>{S.sound=!S.sound;if(!S.sound)tenseStop();save();$('#bSound').textContent=S.sound?'🔊':'🔇'};
 $('#bSound').textContent=S.sound?'🔊':'🔇';
 $('#bFull').onclick=()=>{try{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()}catch(e){}};
 $('#camPill').onclick=e=>{const b=e.target.closest('[data-cam]');if(!b)return;camMode=b.dataset.cam;$$('#camPill button').forEach(x=>x.classList.toggle('on',x===b))};
